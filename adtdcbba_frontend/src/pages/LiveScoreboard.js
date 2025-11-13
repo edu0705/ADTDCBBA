@@ -1,3 +1,4 @@
+// src/pages/LiveScoreboard.js
 import React, { useState, useEffect, useRef } from 'react';
 import competenciaService from '../services/competenciaService';
 
@@ -24,7 +25,15 @@ const LiveScoreboard = () => {
         wsRef.current = null;
       }
 
-      const WS_URL = `${WS_URL_BASE}${selectedCompetencia}/`;
+      // ¡CAMBIO CLAVE! OBTENER TOKEN
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+          setConnectionStatus('Error: No autenticado');
+          return; // No intentar conectar si no hay token
+      }
+
+      // ¡CAMBIO CLAVE! Añadimos el token a la URL como un query parameter
+      const WS_URL = `${WS_URL_BASE}${selectedCompetencia}/?token=${token}`;
       
       setConnectionStatus('Conectando...');
       const ws = new WebSocket(WS_URL);
@@ -68,7 +77,7 @@ const LiveScoreboard = () => {
         }
       };
     }
-  }, [selectedCompetencia]);
+  }, [selectedCompetencia]); // <-- Este efecto se ejecuta cuando 'selectedCompetencia' cambia
 
 
   const fetchCompetencias = async () => {
@@ -108,7 +117,8 @@ const LiveScoreboard = () => {
           </thead>
           <tbody>
             {sortedScores.map((score, index) => (
-              <tr key={score.inscripcion_id}>
+              // Se usa index como key temporal si inscripcion_id no está
+              <tr key={score.inscripcion_id || index}>
                 <td>{index + 1}</td>
                 <td>{score.deportista}</td>
                 <td>{score.arma}</td>

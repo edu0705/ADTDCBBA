@@ -7,8 +7,7 @@ from .models import Deportista, Documento, Arma
 
 class DocumentoInline(admin.StackedInline):
     model = Documento
-    extra = 0 # Mostrar solo los que existen (no formularios vacíos)
-    # Permite al admin ver el archivo subido
+    extra = 0 
     readonly_fields = ('file_path',) 
     fields = ('document_type', 'expiration_date', 'file_path') 
     can_delete = False
@@ -25,21 +24,24 @@ class DeportistaAdmin(admin.ModelAdmin):
     # Usa los inlines para mostrar Documentos y Armas en la página de edición
     inlines = [DocumentoInline, ArmaInline] 
     
+    # --- CAMPOS MODIFICADOS ---
     # Campos visibles en el listado de la tabla principal
-    list_display = ('first_name', 'last_name', 'club', 'status')
-    list_filter = ('status', 'club') # Permite filtrar por estado y club
-    search_fields = ('first_name', 'last_name', 'ci')
+    list_display = ('first_name', 'apellido_paterno', 'apellido_materno', 'club', 'status')
+    list_filter = ('status', 'club') 
+    # Añadimos los nuevos apellidos al buscador
+    search_fields = ('first_name', 'apellido_paterno', 'apellido_materno', 'ci')
 
     # Organización de campos en la forma de edición
     fieldsets = (
         ('Información Personal', {
-            'fields': (('first_name', 'last_name'), 'ci', ('birth_date', 'genero'), ('departamento', 'telefono')),
+            # Reemplazamos 'last_name' por los nuevos campos
+            'fields': (('first_name', 'apellido_paterno', 'apellido_materno'), 'ci', ('birth_date', 'genero'), ('departamento', 'telefono')),
         }),
         ('Control y Afiliación', {
-            # Incluimos notas_admin para que el Presidente vea o escriba el motivo de rechazo/suspensión
             'fields': ('user', 'club', 'status', 'notas_admin'), 
         }),
     )
+    # --- FIN DE LA MODIFICACIÓN ---
 
 # --- Registra los modelos con sus clases Admin ---
 admin.site.register(Deportista, DeportistaAdmin)

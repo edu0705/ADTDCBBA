@@ -24,6 +24,19 @@ const AdminLayout = ({ children }) => {
                     <Link to="/admin" className="list-group-item list-group-item-action bg-dark text-white border-0 py-3">
                         <i className="bi bi-house me-2"></i> Dashboard
                     </Link>
+                    
+                    {/* --- GESTIÓN DE FLUJO --- */}
+                    <Link to="/admin/deportistas" className="list-group-item list-group-item-action bg-dark text-white border-0 py-3">
+                        <i className="bi bi-person-check me-2"></i> Aprobar Deportistas
+                    </Link>
+                    <Link to="/admin/inscripciones" className="list-group-item list-group-item-action bg-dark text-white border-0 py-3">
+                        <i className="bi bi-card-checklist me-2"></i> Gestionar Inscripciones
+                    </Link>
+
+                    {/* --- GESTIÓN DE DATOS --- */}
+                    <Link to="/admin/competencias/crear" className="list-group-item list-group-item-action bg-dark text-white border-0 py-3">
+                        <i className="bi bi-calendar-plus me-2"></i> Crear Competencia
+                    </Link>
                     <Link to="/admin/poligonos" className="list-group-item list-group-item-action bg-dark text-white border-0 py-3">
                         <i className="bi bi-geo-alt me-2"></i> Gestionar Polígonos
                     </Link>
@@ -33,11 +46,18 @@ const AdminLayout = ({ children }) => {
                     <Link to="/admin/modalidades" className="list-group-item list-group-item-action bg-dark text-white border-0 py-3">
                         <i className="bi bi-list-check me-2"></i> Gestionar Modalidades
                     </Link>
-                    <Link to="/admin/competencias" className="list-group-item list-group-item-action bg-dark text-white border-0 py-3">
-                        <i className="bi bi-trophy me-2"></i> Gestionar Competencias
+
+                    {/* --- NUEVOS REPORTES AÑADIDOS --- */}
+                    <Link to="/admin/clubs" className="list-group-item list-group-item-action bg-dark text-white border-0 py-3">
+                        <i className="bi bi-shield-check me-2"></i> Reporte de Clubes
                     </Link>
-                    <Link to="/admin/inscripciones" className="list-group-item list-group-item-action bg-dark text-white border-0 py-3">
-                        <i className="bi bi-card-checklist me-2"></i> Gestionar Inscripciones
+                    <Link to="/admin/armas" className="list-group-item list-group-item-action bg-dark text-white border-0 py-3">
+                        <i className="bi bi-archive me-2"></i> Reporte de Armas
+                    </Link>
+                    
+                    {/* --- CIERRE --- */}
+                    <Link to="/admin/competencias" className="list-group-item list-group-item-action bg-dark text-white border-0 py-3">
+                        <i className="bi bi-trophy me-2"></i> Cierre de Competencias
                     </Link>
                 </div>
             </div>
@@ -53,7 +73,7 @@ const AdminLayout = ({ children }) => {
                 </nav>
 
                 <div className="container-fluid py-4">
-                    {children} {/* Aquí se renderiza el contenido de cada página de admin */}
+                    {children}
                 </div>
             </div>
         </div>

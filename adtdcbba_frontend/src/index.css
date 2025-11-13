@@ -1,78 +1,124 @@
 /* src/index.css */
+/* Importación de Datepicker (ya la tenías, es correcta) */
 @import 'react-datepicker/dist/react-datepicker.css';
+
+/* --- 1. Base y Tipografía (Moderno) --- */
 
 body {
   margin: 0;
-  /* Usar la fuente Roboto para un look moderno */
+  /* Usar la fuente Roboto (que ya tenías) es una excelente elección */
   font-family: 'Roboto', sans-serif !important; 
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f8f9fa; /* Fondo muy claro */
-  color: #343a40; /* Texto oscuro */
+  
+  /* Un fondo ligeramente gris hace que los elementos "floten" */
+  background-color: #f8f9fa; 
+  color: #343a40; /* Texto principal oscuro */
 }
 
-/* Estilos de la cabecera (Header) */
-.App-header {
-  background-color: #ffffff; /* Fondo blanco */
-  border-bottom: 3px solid #007bff; /* Línea de color institucional */
-  padding: 10px 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
+/* --- 2. Títulos y Jerarquía (Intuitivo) --- */
 
-.App-header h1 {
-  font-weight: 700;
-  color: #004d40; 
-  font-size: 2rem;
-  margin: 0;
-}
-
-/* Estilo de la navegación */
-.App-header nav {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  margin-top: 10px;
-}
-
-.App-header a {
-  text-decoration: none;
-  color: #007bff; 
-  font-weight: 500;
-  transition: color 0.2s;
-}
-
-.App-header a:hover {
-  color: #0056b3;
-}
-
-/* Contenedor principal de los componentes */
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-/* Estilo para los títulos de los paneles */
+/* Título principal de cada página (ej: "Gestionar Polígonos") */
 h2 {
-    color: #004d40;
     font-weight: 500;
-    border-bottom: 1px solid #ced4da;
-    padding-bottom: 5px;
-    margin-bottom: 20px;
+    color: #0d6efd; /* Tu color primario de Bootstrap */
+    padding-bottom: 10px;
+    border-bottom: 1px solid #dee2e6;
+    margin-bottom: 2rem; /* Más espacio después del título */
 }
 
-/* Mensajes de feedback */
-.alert {
-    padding: 15px;
-    margin-bottom: 20px;
-    border-radius: 5px;
+/* Títulos dentro de las tarjetas (ej: "Polígonos Registrados") */
+h4.text-secondary {
+    font-weight: 500;
+    color: #495057 !important; /* Un gris más oscuro para mejor lectura */
 }
-.alert-success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
-.alert-danger { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
 
-/* Tarjetas (para jueces/deportistas) */
+/* --- 3. Estilo de Tarjetas (Elegante) --- */
+
+/* Refinamos las tarjetas (el contenedor principal de tus formularios y tablas) */
 .card {
-    border: none;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    border: none; /* Quitamos el borde por defecto */
+    border-radius: 8px; /* Bordes más suaves */
+    /* Mantenemos tu 'shadow-sm' pero como un estándar */
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+    overflow: hidden; /* Asegura que el contenido respete los bordes redondeados */
+}
+
+.card-header {
+    background-color: #ffffff;
+    border-bottom: 1px solid #f0f0f0; /* Un borde muy sutil */
+    font-weight: 500;
+    color: #212529;
+}
+
+/* --- 4. Estilo de Tablas (Moderno y Elegante) --- */
+/* Esto impactará directamente la captura que me mostraste */
+
+.table {
+    border-collapse: separate; /* Permite bordes redondeados en la tabla */
+    border-spacing: 0;
+    width: 100%;
+}
+
+/* Estilo del encabezado de la tabla */
+.table thead th {
+    background-color: #f1f3f5; /* Un gris muy claro para el encabezado */
+    color: #495057;
+    font-weight: 600;
+    text-transform: uppercase; /* Opcional: le da un look profesional */
+    font-size: 0.85rem;
+    border-bottom: 2px solid #dee2e6;
+    border-top: none;
+}
+
+/* Estilo de las filas */
+.table tbody tr {
+    background-color: #ffffff;
+}
+
+.table tbody td {
+    padding: 1rem; /* Más espacio en las celdas */
+    vertical-align: middle; /* Centra verticalmente el contenido (botones, texto) */
+    border-bottom: 1px solid #f0f0f0; /* Borde de fila muy sutil */
+    border-top: none;
+}
+
+/* Quitamos los bordes de la última fila */
+.table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Hacemos que la tabla quepa bien en la tarjeta */
+.card .table {
+    margin-bottom: 0;
+}
+
+/* --- 5. Estilo de Formularios y Botones (Intuitivo) --- */
+
+/* Inputs y Selects */
+.form-control,
+.form-select {
+    border-radius: 6px;
+    border: 1px solid #ced4da;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    background-color: #fff;
+}
+
+/* Botones */
+.btn {
+    border-radius: 6px; /* Bordes redondeados consistentes */
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+}
+
+/* Botones de acciones en tablas (los hacemos más sutiles) */
+.table .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.9rem;
 }

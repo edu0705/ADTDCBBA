@@ -3,6 +3,7 @@ from django.db.models import Sum # Necesario para la lógica de ranking
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
+from reportlab.lib.units import inch # <-- ¡IMPORTACIÓN AÑADIDA!
 from rest_framework import viewsets, generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
@@ -21,7 +22,7 @@ from .serializers import (
     InscripcionSerializer,
     InscripcionCreateSerializer,
     ScoreSubmissionSerializer,
-    ResultadoSerializer # <--- ¡IMPORTACIÓN CORREGIDA!
+    ResultadoSerializer
 )
 
 
@@ -48,6 +49,7 @@ class CompetenciaViewSet(viewsets.ModelViewSet):
         return Response({"message": f"Competencia '{competencia.name}' finalizada y resultados oficializados."}, status=200)
 
     # ACCIÓN 2: GENERACIÓN DE REPORTE (GET)
+    # ¡ESTA ES LA SECCIÓN CORREGIDA Y COMPLETADA!
     @action(detail=True, methods=['get'])
     def generate_report(self, request, pk=None):
         try:
@@ -58,7 +60,7 @@ class CompetenciaViewSet(viewsets.ModelViewSet):
         if competencia.status != 'Finalizada':
             return Response({"detail": "Los resultados deben estar OFICIALIZADOS."}, status=400)
 
-        # LÓGICA DE RANKING (Consulta a la BD)
+        # LÓGICA DE RANKING (Tu consulta original estaba perfecta)
         ranking_data = Resultado.objects.filter(
             inscripcion__competencia=competencia
         ).values(
@@ -75,18 +77,54 @@ class CompetenciaViewSet(viewsets.ModelViewSet):
 
         p = canvas.Canvas(response, pagesize=A4)
         width, height = A4
-        y_position = height - 70
         
-        # Título y Dibujo de la tabla de Ranking (Implementación de ReportLab)
-        p.setFont("Helvetica-Bold", 18)
-        p.drawString(100, height - 50, "RANKING OFICIAL DE RESULTADOS")
+        # --- INICIO DE LÓGICA DE DIBUJO DE PDF ---
         
-        p.setFont("Helvetica-Bold", 10)
-        p.drawString(100, y_position, "POS.")
-        # ... (Lógica de dibujo del PDF) ...
+        # Definir márgenes y posición inicial
+        margin = 0.75 * inch
+        y = height - margin
+        line_height = 20 # Espacio entre líneas
 
-        p.showPage()
-        p.save()
+        # Título
+        p.setFont("Helvetica-Bold", 16)
+        p.drawCentredString(width / 2.0, y, f"RANKING OFICIAL: {competencia.name.upper()}")
+        y -= (line_height * 2) # Bajar dos líneas
+
+        # Encabezados de la tabla
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(margin, y, "POS.")
+        p.drawString(margin + 50, y, "DEPORTISTA")
+        p.drawString(margin + 250, y, "CLUB")
+        p.drawString(width - margin - 80, y, "PUNTAJE FINAL")
+        y -= line_height
+        
+        # Línea horizontal
+        p.line(margin, y + (line_height / 2), width - margin, y + (line_height / 2))
+
+        # Contenido de la tabla (Resultados)
+        p.setFont("Helvetica", 10)
+        for i, row in enumerate(ranking_data):
+            pos = i + 1
+            nombre = f"{row['inscripcion__deportista__first_name']} {row['inscripcion__deportista__last_name']}"
+            club = row['inscripcion__club__name'] or 'N/A'
+            score = str(row['total_score'])
+
+            p.drawString(margin, y, str(pos))
+            p.drawString(margin + 50, y, nombre)
+            p.drawString(margin + 250, y, club)
+            p.drawString(width - margin - 80, y, score) # Alineado a la derecha
+            y -= line_height
+
+            # Si nos quedamos sin espacio, crea una nueva página
+            if y < margin:
+                p.showPage() # Finaliza la página actual
+                y = height - margin # Resetea 'y' al tope de la nueva página
+                # (Opcional: podrías volver a dibujar los encabezados aquí)
+
+        # --- FIN DE LÓGICA DE DIBUJO ---
+
+        p.showPage() # Finaliza la última página
+        p.save() # Guarda el PDF
 
         return response
 
@@ -138,11 +176,15 @@ class ScoreSubmissionAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        serializer = ScoreSubmissionSerializer(data=request.data)
+        # ¡CAMBIO AQUÍ! (Paso 8.C)
+        # Añadimos context={'request': request}
+        serializer = ScoreSubmissionSerializer(data=request.data, context={'request': request})
+        
         serializer.is_valid(raise_exception=True)
 
-        # Usa el .create del serializador, que maneja la lógica WebSockets
-        resultado = serializer.create(serializer.validated_data) 
+        # ¡CAMBIO AQUÍ! (Paso 8.C)
+        # Usamos serializer.save() que llama a .create() internamente
+        resultado = serializer.save() 
         
         # Devolver el resultado
         return Response(ResultadoSerializer(resultado).data, status=200)

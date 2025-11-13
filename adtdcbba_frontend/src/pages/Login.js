@@ -26,15 +26,19 @@ const Login = () => {
 
       login(roles); // <-- Establece el estado global: isLoggedIn=true
 
-      // Redirección
+      // ¡REDIRECCIÓN MODIFICADA!
       if (roles.includes('Presidente') || roles.includes('Tesorero')) {
         navigate('/admin');
       } else if (roles.includes('Club')) {
         navigate('/dashboard');
       } else if (roles.includes('Juez')) {
         navigate('/juez');
+      } else if (roles.includes('Deportista')) {
+        // ¡NUEVA REDIRECCIÓN!
+        navigate('/mi-perfil');
       } else {
-        navigate('/dashboard'); 
+        // Por defecto, si no tiene rol conocido
+        navigate('/login'); 
       }
 
     } catch (err) {

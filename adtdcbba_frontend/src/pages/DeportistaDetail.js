@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import deportistaService from '../services/deportistaService';
 
+// ¡YA NO NECESITAMOS DEFINIR BACKEND_URL AQUÍ!
+
 const DeportistaDetail = () => {
     const { id } = useParams(); // Obtiene el ID de la URL
     const [deportista, setDeportista] = useState(null);
@@ -40,22 +42,19 @@ const DeportistaDetail = () => {
                 <div className="card-header bg-info text-white">
                     Información Básica
                 </div>
+                {/* ... (Todo tu JSX de Información Básica está bien) ... */}
                 <div className="card-body row">
                     <div className="col-md-4"><strong>Club:</strong> <span className="badge bg-primary">{val(deportista.club_info)}</span></div>
                     <div className="col-md-4"><strong>Estado Actual:</strong> <span className={`badge bg-${deportista.status === 'Activo' ? 'success' : 'warning'}`}>{val(deportista.status)}</span></div>
-                    <div className="col-md-4"><strong>Email:</strong> {val(deportista.email)}</div>
-
+                    <div className="col-md-4"><strong>Email (Usuario):</strong> {val(deportista.email)}</div>
                     <hr className="my-2" />
-                    
                     <div className="col-md-4"><strong>CI:</strong> {val(deportista.ci)}</div>
                     <div className="col-md-4"><strong>Fecha Nacimiento:</strong> {val(deportista.birth_date)}</div>
                     <div className="col-md-4"><strong>Teléfono:</strong> {val(deportista.telefono)}</div>
-
                     <hr className="my-2" />
-
                     <div className="col-md-4"><strong>Género:</strong> {val(deportista.genero)}</div>
                     <div className="col-md-4"><strong>Departamento:</strong> {val(deportista.departamento)}</div>
-                    <div className="col-md-4"><strong>N° Afiliado:</strong> {val(deportista.user)}</div> {/* Muestra el ID de usuario como afiliado */}
+                    <div className="col-md-4"><strong>N° Afiliado (ID):</strong> {val(deportista.user)}</div>
                 </div>
             </div>
 
@@ -69,9 +68,15 @@ const DeportistaDetail = () => {
                                 <span>
                                     <strong>{val(doc.document_type)}</strong> (Vence: {val(doc.expiration_date)})
                                 </span>
-                                <a href={`/media/${doc.file_path}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
-                                    Ver Archivo <i className="bi bi-box-arrow-up-right"></i>
-                                </a>
+                                
+                                {/* ¡CORRECCIÓN FINAL! Usamos doc.file_path directamente */}
+                                {doc.file_path ? (
+                                    <a href={doc.file_path} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
+                                        Ver Archivo <i className="bi bi-box-arrow-up-right"></i>
+                                    </a>
+                                ) : (
+                                    <span className="text-muted small">Sin archivo</span>
+                                )}
                             </li>
                         ))
                     ) : (
@@ -86,8 +91,19 @@ const DeportistaDetail = () => {
                 <ul className="list-group list-group-flush">
                     {deportista.armas && deportista.armas.length > 0 ? (
                         deportista.armas.map((arma, index) => (
-                            <li key={arma.id || index} className="list-group-item">
-                                <strong>{val(arma.marca)} {val(arma.modelo)}</strong> ({val(arma.calibre)}) - Matrícula: {val(arma.numero_matricula)} - Inspección: {val(arma.fecha_inspeccion)}
+                            <li key={arma.id || index} className="list-group-item d-flex justify-content-between align-items-center">
+                                <span>
+                                    <strong>{val(arma.marca)} {val(arma.modelo)}</strong> ({val(arma.calibre)}) - Matrícula: {val(arma.numero_matricula)}
+                                </span>
+                                
+                                {/* ¡CORRECCIÓN FINAL! Usamos arma.file_path directamente */}
+                                {arma.file_path ? (
+                                    <a href={arma.file_path} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
+                                        Ver Matrícula
+                                    </a>
+                                ) : (
+                                    <span className="text-muted small">Sin archivo</span>
+                                )}
                             </li>
                         ))
                     ) : (

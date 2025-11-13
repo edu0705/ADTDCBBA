@@ -8,7 +8,7 @@ from clubs.models import Club
 from django.contrib.auth.models import User
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from .score_utils import calculate_round_score # <-- ¡IMPORTANTE! Importamos la función de cálculo
+from .score_utils import calculate_round_score # <-- ¡IMPORTANTE!
 
 
 # --- Serializadores de Gestión ---
@@ -69,8 +69,12 @@ class InscripcionCreateSerializer(serializers.ModelSerializer):
         participaciones_data = validated_data.pop('participaciones')
         
         # Asume que el usuario logueado es el dueño del club
-        club = self.context['request'].user.club 
-        validated_data['club'] = club
+        # ¡MEJORA DE SEGURIDAD! Obtener el club desde el usuario
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user') or not hasattr(request.user, 'club'):
+             raise serializers.ValidationError({"detail": "No se puede identificar el club del usuario logueado."})
+
+        validated_data['club'] = request.user.club
         
         inscripcion = Inscripcion.objects.create(**validated_data)
         
@@ -110,11 +114,26 @@ class ScoreSubmissionSerializer(serializers.ModelSerializer):
         # Solo recibimos la Inscripcion, Ronda, y los Datos Crudos
         fields = ['inscripcion', 'ronda_o_serie', 'puntaje_crudo'] 
     
+    # ¡MÉTODO CREATE MODIFICADO! (Paso 8.D)
     def create(self, validated_data):
+        
+        # 1. Obtenemos el usuario logueado desde el 'context'
+        request = self.context.get('request')
+        juez_logueado = None
+        
+        if request and hasattr(request, 'user') and not request.user.is_anonymous:
+            # Buscamos el perfil de Juez asociado a este Usuario
+            try:
+                # 'juez_profile' es el 'related_name' que definimos en el Modelo Juez
+                juez_logueado = request.user.juez_profile
+            except Juez.DoesNotExist:
+                pass # El usuario logueado no tiene un perfil de Juez
+        
+        
+        # 2. Tu lógica existente para calcular el score (¡ESTÁ PERFECTA!)
         inscripcion_obj = validated_data.get('inscripcion')
         score_data = validated_data.pop('puntaje_crudo')
         
-        # 1. IDENTIFICAR LA MODALIDAD
         participacion = inscripcion_obj.participaciones.first() 
         
         if not participacion:
@@ -130,8 +149,8 @@ class ScoreSubmissionSerializer(serializers.ModelSerializer):
             inscripcion=inscripcion_obj,
             puntaje=final_score, # <-- Usamos el valor CALCULADO
             detalles_json=score_data, # Guardamos el detalle crudo para auditoría
-            ronda_o_serie=validated_data.get('ronda_o_serie')
-            # El juez que registro será gestionado en la vista/vista-set (request.user.juez)
+            ronda_o_serie=validated_data.get('ronda_o_serie'),
+            juez_que_registro=juez_logueado # <-- ¡AQUÍ GUARDAMOS AL JUEZ!
         )
         
         # 4. Lógica de WebSockets (Broadcast)

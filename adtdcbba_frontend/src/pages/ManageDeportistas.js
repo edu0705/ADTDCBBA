@@ -1,5 +1,4 @@
 // src/pages/ManageDeportistas.js
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import deportistaService from '../services/deportistaService';
@@ -15,15 +14,9 @@ const ManageDeportistas = () => {
 
     const fetchDeportistas = async () => {
         try {
-            // Esta API devuelve TODOS los deportistas para el Presidente/Admin
             const response = await deportistaService.getDeportistas(); 
-            
-            // Filtro para excluir a los ya Rechazados de la vista principal de gestión
-            const deportistasFiltrados = response.data.filter(dep => 
-                dep.status !== 'Rechazado'
-            );
-            
-            setDeportistas(deportistasFiltrados);
+            // Mostramos TODOS los deportistas, sin filtrar los rechazados
+            setDeportistas(response.data);
             setError('');
         } catch (err) {
             console.error("Error fetching deportistas:", err);
@@ -31,32 +24,73 @@ const ManageDeportistas = () => {
         }
     };
 
-    const handleApprove = async (id, status) => {
-        setMessage('');
-        setError('');
+    // Llama a la acción 'approve'
+    const handleApprove = async (id) => {
+        setMessage(''); setError('');
         try {
-            // Usamos PATCH para actualizar solo el campo 'status'
-            await deportistaService.updateDeportista(id, { status: status });
-            setMessage(`Deportista ID ${id} marcado como ${status}.`);
-            fetchDeportistas(); // Recargar la lista
+            const response = await deportistaService.approveDeportista(id);
+            alert(
+                `¡Deportista Aprobado!\n\n` +
+                `Usuario: ${response.data.username}\n` +
+                `Contraseña: ${response.data.password}\n\n` +
+                `Guarda esta contraseña para dársela al deportista.`
+            );
+            setMessage(response.data.message);
+            fetchDeportistas(); 
         } catch (err) {
-            setError("Fallo al actualizar el estado del deportista.");
+            setError("Fallo al aprobar al deportista. ¿Quizás el CI ya está en uso como usuario?");
         }
     };
 
+    // ¡NUEVA FUNCIÓN! Llama a la acción 'suspend'
+    const handleSuspend = async (id) => {
+        if (!window.confirm("¿Está seguro de suspender a este deportista? Su cuenta será desactivada y no podrá iniciar sesión.")) return;
+        
+        setMessage(''); setError('');
+        try {
+            await deportistaService.suspendDeportista(id);
+            setMessage(`Deportista ID ${id} marcado como Suspendido.`);
+            fetchDeportistas(); 
+        } catch (err) {
+            setError("Fallo al suspender al deportista.");
+        }
+    };
+
+    // ¡NUEVA FUNCIÓN! Llama a la acción 'reactivate'
+    const handleReactivate = async (id) => {
+        setMessage(''); setError('');
+        try {
+            await deportistaService.reactivateDeportista(id);
+            setMessage(`Deportista ID ${id} reactivado.`);
+            fetchDeportistas(); 
+        } catch (err) {
+            setError("Fallo al reactivar al deportista.");
+        }
+    };
+
+    // Llama a la acción 'update' (PATCH) genérica
     const handleReject = async (id) => {
-        const motivo = prompt("Ingrese el motivo detallado del rechazo:");
+        const motivo = prompt("Ingrese el motivo detallado del rechazo (obligatorio):");
         if (!motivo) return; 
 
-        setMessage('');
-        setError('');
+        setMessage(''); setError('');
         try {
-            // Enviamos el estado 'Rechazado' y el motivo al nuevo campo 'notas_admin' del modelo Deportista
             await deportistaService.updateDeportista(id, { status: 'Rechazado', notas_admin: `Rechazo: ${motivo}` });
             setMessage(`Deportista ID ${id} RECHAZADO con motivo.`);
             fetchDeportistas();
         } catch (err) {
-            setError("Fallo al rechazar el estado del deportista.");
+            setError("Fallo al rechazar al deportista.");
+        }
+    };
+
+    // Función helper para los badges de estado
+    const getStatusBadge = (status) => {
+        switch (status) {
+            case 'Activo': return 'badge bg-success';
+            case 'Suspendido': return 'badge bg-secondary';
+            case 'Rechazado': return 'badge bg-danger';
+            case 'Pendiente de Aprobación': return 'badge bg-warning text-dark';
+            default: return 'badge bg-light text-dark';
         }
     };
 
@@ -73,7 +107,6 @@ const ManageDeportistas = () => {
                     <table className="table table-striped table-hover align-middle">
                         <thead className="table-dark">
                             <tr>
-                                <th>ID</th>
                                 <th>Nombre Completo</th>
                                 <th>Club</th>
                                 <th>Estado</th>
@@ -82,27 +115,21 @@ const ManageDeportistas = () => {
                         </thead>
                         <tbody>
                             {deportistas.map(dep => (
-                                <tr key={dep.id} className={dep.status === 'Pendiente de Aprobación' ? 'table-warning' : ''}>
-                                    <td>{dep.id}</td>
+                                <tr key={dep.id}>
                                     <td>{dep.first_name} {dep.last_name}</td>
-                                    
+                                    <td><span className="badge bg-primary">{dep.club_info || 'N/A'}</span></td> 
+                                    <td><span className={getStatusBadge(dep.status)}>{dep.status}</span></td>
                                     <td>
-                                        <span className="badge bg-primary">
-                                            {dep.club_info || 'N/A'}
-                                        </span>
-                                    </td> 
-                                    
-                                    <td><span className={`badge bg-${dep.status === 'Activo' ? 'success' : 'warning'}`}>{dep.status}</span></td>
-                                    <td>
-                                        {/* 1. BOTÓN DE REVISIÓN DE PERFIL/DOCUMENTOS */}
                                         <Link to={`/admin/deportistas/${dep.id}`} className="btn btn-sm btn-info me-2 text-white">
                                             <i className="bi bi-eye me-1"></i> Revisar
                                         </Link>
 
-                                        {/* 2. BOTÓN DE APROBAR / RECHAZAR */}
-                                        {dep.status !== 'Activo' && dep.status !== 'Rechazado' && (
+                                        {/* --- BOTONES CON LÓGICA CONDICIONAL --- */}
+
+                                        {/* 1. Si está Pendiente */}
+                                        {dep.status === 'Pendiente de Aprobación' && (
                                             <>
-                                                <button onClick={() => handleApprove(dep.id, 'Activo')} className="btn btn-sm btn-success me-2">
+                                                <button onClick={() => handleApprove(dep.id)} className="btn btn-sm btn-success me-2">
                                                     <i className="bi bi-check-lg me-1"></i> Aprobar
                                                 </button>
                                                 <button onClick={() => handleReject(dep.id)} className="btn btn-sm btn-danger">
@@ -110,10 +137,18 @@ const ManageDeportistas = () => {
                                                 </button>
                                             </>
                                         )}
-                                        {/* 3. SUSPENDER (Opción para perfiles ya activos) */}
+                                        
+                                        {/* 2. Si está Activo */}
                                         {dep.status === 'Activo' && (
-                                            <button onClick={() => handleApprove(dep.id, 'Suspendido')} className="btn btn-sm btn-outline-danger">
+                                            <button onClick={() => handleSuspend(dep.id)} className="btn btn-sm btn-outline-danger">
                                                 Suspender
+                                            </button>
+                                        )}
+
+                                        {/* 3. Si está Suspendido o Rechazado */}
+                                        {(dep.status === 'Suspendido' || dep.status === 'Rechazado') && (
+                                            <button onClick={() => handleReactivate(dep.id)} className="btn btn-sm btn-outline-success">
+                                                Reactivar
                                             </button>
                                         )}
                                     </td>

@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from datetime import timedelta
-
+from decouple import config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -138,16 +138,17 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS (Comunicación con React)
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
+    config('CORS_ALLOWED_ORIGIN'), # <-- Lee la URL de React desde .env
     "http://127.0.0.1:3000",
-    "http://localhost:8000",
-    "http://localhost:8001",
+    "http://localhost:8000", # Si accedes a la API directamente
+    "http://localhost:8001", # Para el WebSocket
 ]
 # Comenta esto
 # CORS_ALLOWED_ALL_ORIGINS = True 
 
-# Y añade esto para el test:
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
+
+
 
 # Django REST Framework
 REST_FRAMEWORK = {

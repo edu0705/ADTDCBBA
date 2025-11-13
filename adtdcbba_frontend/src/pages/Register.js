@@ -1,5 +1,4 @@
 // src/pages/Register.js
-
 import React, { useState } from 'react';
 import authService from '../services/authService';
 import { useNavigate } from 'react-router-dom';
@@ -28,9 +27,31 @@ const Register = () => {
       await authService.registerClub(formData);
       setMessage('Registro exitoso. Serás redirigido al inicio de sesión.');
       setTimeout(() => navigate('/login'), 3000);
+      
     } catch (err) {
-      console.error(err);
-      setError('Error al registrar. Por favor, revisa tus datos o intenta con otro usuario.');
+        // ¡¡¡LÓGICA 'CATCH' MEJORADA!!!
+        console.error("Error detallado:", err.response ? err.response.data : err.message);
+
+        if (err.response && err.response.data) {
+            const errorData = err.response.data;
+            let specificError = "";
+
+            if (errorData.username) {
+                specificError = `Usuario: ${errorData.username[0]}`;
+            } else if (errorData.email) {
+                specificError = `Email: ${errorData.email[0]}`;
+            } else if (errorData.club_name) {
+                specificError = `Nombre de Club: ${errorData.club_name[0]}`;
+            } else if (errorData.detail) {
+                specificError = errorData.detail; // ej: "El grupo 'Club' no existe."
+            } else {
+                specificError = "Error no identificado. Verifique los campos.";
+            }
+            setError(specificError);
+
+        } else {
+            setError('Error de conexión con el servidor.');
+        }
     }
   };
 
@@ -56,7 +77,7 @@ const Register = () => {
                 </div>
                 <div className="col-12">
                   <label className="form-label">Contraseña</label>
-                  <input type="password" className="form-control" name="password" placeholder="Contraseña" value={formData.password} onChange={handleChange} required />
+                  <input type="password" className="form-control" name="password" placeholder="Contraseña" value={formData.password} required />
                 </div>
 
                 <h5 className="mt-4 border-bottom pb-2">Información del Club</h5>

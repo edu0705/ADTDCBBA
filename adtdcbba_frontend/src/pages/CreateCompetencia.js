@@ -6,7 +6,7 @@ const CreateCompetencia = () => {
   const [poligonos, setPoligonos] = useState([]);
   const [jueces, setJueces] = useState([]);
   const [modalidades, setModalidades] = useState([]);
-  const [competencias, setCompetencias] = useState([]); // <-- ¡AHORA USADO!
+  const [competencias, setCompetencias] = useState([]);
   const [archivoConvocatoria, setArchivoConvocatoria] = useState(null); 
   
   const [competenciaData, setCompetenciaData] = useState({
@@ -29,7 +29,7 @@ const CreateCompetencia = () => {
     fetchData();
   }, []);
 
-  // --- Lógica de Mapeo para React-Select ---
+  // --- Lógica de Mapeo para React-Select (Ahora SÍ se usan abajo) ---
   const poligonoOptions = poligonos.map(p => ({ value: p.id, label: p.name }));
   const juezOptions = jueces.map(j => ({ value: j.id, label: j.full_name }));
   
@@ -41,6 +41,7 @@ const CreateCompetencia = () => {
   // ----------------------------------------
 
 
+  // ¡FUNCIÓN CORREGIDA (para leer datos paginados)!
   const fetchData = async () => {
     try {
       const [poligonosRes, juecesRes, modalidadesRes, competenciasRes] = await Promise.all([
@@ -49,14 +50,26 @@ const CreateCompetencia = () => {
         competenciaService.getModalidades(),
         competenciaService.getCompetencias()
       ]);
-      setPoligonos(poligonosRes.data);
-      setJueces(juecesRes.data);
-      setModalidades(modalidadesRes.data);
-      setCompetencias(competenciasRes.data); // <-- Datos cargados
+
+      // Función auxiliar para extraer datos paginados
+      const extractData = (response) => {
+          if (response.data && response.data.results && Array.isArray(response.data.results)) {
+              return response.data.results;
+          }
+          return Array.isArray(response.data) ? response.data : [];
+      };
+
+      setPoligonos(extractData(poligonosRes));
+      setJueces(extractData(juecesRes));
+      setModalidades(extractData(modalidadesRes));
+      setCompetencias(extractData(competenciasRes)); 
+
     } catch (err) {
       setError("No se pudieron cargar los datos necesarios. Asegúrese de tener el rol 'Presidente'.");
     }
   };
+  // --- FIN DE LA CORRECCIÓN ---
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -65,11 +78,11 @@ const CreateCompetencia = () => {
   
   const handleSelectChange = (selected, actionMeta) => {
     const name = actionMeta.name;
-    const value = Array.isArray(selected) ? selected : selected ? selected.value : null;
-
+    let value = Array.isArray(selected) ? selected : (selected ? selected.value : '');
     setCompetenciaData({ ...competenciaData, [name]: value });
   };
 
+  // ¡ESTA FUNCIÓN AHORA SÍ SE USA!
   const handleFileChange = (e) => {
     setArchivoConvocatoria(e.target.files[0]);
   };
@@ -80,11 +93,8 @@ const CreateCompetencia = () => {
     setError('');
 
     const todasCategorias = competenciaData.modalidades_seleccionadas.flatMap(group => 
-        group.options 
-            ? group.options.map(opt => opt.value)
-            : group.value
+        group.options ? group.options.map(opt => opt.value) : (group.value ? [group.value] : [])
     );
-
     const juezIds = competenciaData.jueces.map(j => j.value);
 
     const dataToSend = {
@@ -102,16 +112,16 @@ const CreateCompetencia = () => {
              formData.append(key, dataToSend[key]);
         }
     }
+    
     if (archivoConvocatoria) {
         formData.append('archivo_convocatoria', archivoConvocatoria, archivoConvocatoria.name);
     }
-
 
     try {
       await competenciaService.createCompetencia(formData);
       setMessage("Competencia creada con éxito.");
       fetchData(); // Recargar datos
-      // Limpiar formulario
+      
       setCompetenciaData({
         name: '', description: '', start_date: '', end_date: '', poligono: '',
         type: 'Departamental', jueces: [], modalidades_seleccionadas: [],
@@ -120,11 +130,25 @@ const CreateCompetencia = () => {
       setArchivoConvocatoria(null);
 
     } catch (err) {
-      setError("Error al crear competencia. Revise la consola para más detalles.");
+      console.error("Error al crear competencia:", err.response ? err.response.data : err.message);
+      if (err.response && err.response.data) {
+          const errorData = err.response.data;
+          let specificError = "";
+          if (errorData.detail) {
+              specificError = errorData.detail;
+          } else if (errorData.name) {
+              specificError = `Nombre: ${errorData.name[0]}`;
+          } else {
+              const firstKey = Object.keys(errorData)[0];
+              specificError = `${firstKey}: ${errorData[firstKey][0]}`;
+          }
+          setError(`Error al crear competencia: ${specificError}`);
+      } else {
+          setError("Error de conexión con el servidor.");
+      }
     }
   };
   
-  // FUNCIÓN CORREGIDA: Ahora usada para mostrar el nombre del polígono en la tabla
   const getPoligonoName = (id) => {
     const poligono = poligonoOptions.find(p => p.value === id);
     return poligono ? poligono.label : 'N/A';
@@ -165,8 +189,10 @@ const CreateCompetencia = () => {
                     <Select 
                         name="poligono"
                         options={poligonoOptions}
+                        value={poligonoOptions.find(p => p.value === competenciaData.poligono) || null}
                         onChange={(selected) => handleSelectChange(selected, { name: 'poligono' })}
                         placeholder="Seleccione un Polígono"
+                        isClearable
                         required
                     />
                 </div>
@@ -183,6 +209,7 @@ const CreateCompetencia = () => {
                     <Select 
                         name="modalidades_seleccionadas"
                         options={modalidadOptions}
+                        value={competenciaData.modalidades_seleccionadas}
                         onChange={(selected) => handleSelectChange(selected, { name: 'modalidades_seleccionadas' })}
                         placeholder="Seleccione Modalidades"
                         isMulti
@@ -191,11 +218,13 @@ const CreateCompetencia = () => {
                     <div className="form-text">Al seleccionar la modalidad, se incluyen automáticamente todas sus categorías.</div>
                 </div>
                 
+                {/* ¡ESTA ES LA PARTE QUE FALTABA! */}
                 <div className="col-12">
                     <label className="form-label fw-bold">Jueces</label>
                     <Select 
                         name="jueces"
                         options={juezOptions}
+                        value={competenciaData.jueces}
                         onChange={(selected) => handleSelectChange(selected, { name: 'jueces' })}
                         placeholder="Seleccione Jueces"
                         isMulti
@@ -219,6 +248,7 @@ const CreateCompetencia = () => {
                     <input type="file" className="form-control" name="archivo_convocatoria" onChange={handleFileChange} />
                 </div>
 
+                {/* Este error se muestra si el handleSubmit falla */}
                 {error && <div className="col-12"><div className="alert alert-danger">{error}</div></div>}
                 
                 <div className="col-12 mt-4">
@@ -233,7 +263,7 @@ const CreateCompetencia = () => {
 
         <hr className="my-5"/>
         
-        {/* LISTADO DE COMPETENCIAS - AHORA USA LOS DATOS DE ESTADO Y LA FUNCIÓN CORREGIDA */}
+        {/* LISTADO DE COMPETENCIAS */}
         <h3>Competencias Existentes</h3>
         <table className="table table-striped table-hover">
             <thead className="table-dark">
@@ -250,7 +280,7 @@ const CreateCompetencia = () => {
                         <td>{comp.name}</td>
                         <td>{comp.type}</td>
                         <td>{getPoligonoName(comp.poligono)}</td>
-                        <td><span className={`badge bg-${comp.status === 'Finalizada' ? 'danger' : 'success'}`}>{comp.status}</span></td>
+                        <td><span className={`badge bg-${comp.status === 'Finalizada' ? 'danger' : (comp.status === 'En Progreso' ? 'success' : 'primary')}`}>{comp.status}</span></td>
                     </tr>
                 ))}
             </tbody>

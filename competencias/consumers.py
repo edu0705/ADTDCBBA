@@ -1,10 +1,15 @@
-# competencias/consumers.py
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 class ResultadoConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        # El nombre del grupo es 'competencia_<ID>' (ej. competencia_5)
+        # ¡NUEVA LÓGICA DE AUTENTICACIÓN!
+        # Gracias al middleware, self.scope['user'] ya está disponible.
+        if self.scope['user'].is_anonymous:
+            await self.close() # Rechaza la conexión si no está logueado
+            return
+            
+        # --- El resto de tu código de conexión sigue igual ---
         self.competencia_id = self.scope['url_route']['kwargs']['competencia_id']
         self.competencia_group_name = f'competencia_{self.competencia_id}'
 

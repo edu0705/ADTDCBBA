@@ -1,3 +1,4 @@
+// src/pages/RegisterDeportista.js
 import React, { useState } from 'react';
 import deportistaService from '../services/deportistaService';
 
@@ -6,6 +7,7 @@ const departamentosBolivia = [
     'Oruro', 'Pando', 'Potosí', 'Santa Cruz', 'Tarija'
 ];
 
+// ESLint dice que 'tiposArma' no se usa...
 const tiposArma = [
     'Carabina de aire comprimido', 'Carabina .22', 'Fusil de grueso calibre', 
     'Pistola de aire comprimido', 'Pistola de fuego anular', 'Pistola de velocidad olímpica', 
@@ -13,15 +15,24 @@ const tiposArma = [
     'Carabinas y rifles', 'Escopetas'
 ];
 
+// ... y que 'tiposCalibre' no se usa.
 const tiposCalibre = [
     '.177 / 4.5 mm', '.22 Long Rifle', '7.62 mm', '9 mm', '.40 S&W', '.45 ACP', 'Calibre 12'
 ];
 
 const RegisterDeportista = () => {
     const [deportistaData, setDeportistaData] = useState({ 
-        first_name: '', last_name: '', ci: '', birth_date: '',
-        departamento: '', genero: '', telefono: '', foto_path: null
+        first_name: '', 
+        apellido_paterno: '', 
+        apellido_materno: '', 
+        ci: '', 
+        birth_date: '',
+        departamento: '', 
+        genero: '', 
+        telefono: '', 
+        foto_path: null
     });
+    
     const [documentos, setDocumentos] = useState([]);
     const [armas, setArmas] = useState([]);
     const [message, setMessage] = useState('');
@@ -35,6 +46,7 @@ const RegisterDeportista = () => {
         setDeportistaData({ ...deportistaData, [e.target.name]: e.target.files[0] });
     };
 
+    // ESLint dice que 'handleDocChange' no se usa...
     const handleDocChange = (index, e) => {
         const newDocs = [...documentos];
         const { name, value, type, files } = e.target;
@@ -42,7 +54,6 @@ const RegisterDeportista = () => {
         if (type === 'file') {
             newDocs[index][name] = files[0];
         } else {
-            // Lógica de Control de Fecha para Licencia B
             if (name === 'document_type' && value !== 'Licencia B') {
                 newDocs[index].expiration_date = ''; 
             }
@@ -51,6 +62,7 @@ const RegisterDeportista = () => {
         setDocumentos(newDocs);
     };
 
+    // ... y que 'handleArmaChange' no se usa.
     const handleArmaChange = (index, e) => {
         const newArmas = [...armas];
         const { name, value, type, files } = e.target;
@@ -68,7 +80,6 @@ const RegisterDeportista = () => {
 
         const formData = new FormData();
         
-        // 1. Agregar datos personales y foto
         for (const key in deportistaData) {
             if (deportistaData[key]) {
                 formData.append(key, deportistaData[key]);
@@ -78,7 +89,7 @@ const RegisterDeportista = () => {
             formData.append('foto_path', deportistaData.foto_path, deportistaData.foto_path.name);
         }
 
-        // 2. Agregar datos de documentos y armas como JSON strings
+        // ESLint dice que 'docsData' tiene un error de map...
         const docsData = documentos.map(doc => {
             const data = {
                 document_type: doc.document_type,
@@ -86,7 +97,7 @@ const RegisterDeportista = () => {
             if (doc.document_type === 'Licencia B' && doc.expiration_date) {
                 data.expiration_date = doc.expiration_date;
             }
-            return data;
+            return data; // <-- ¡El return SÍ está aquí!
         });
         
         const armasData = armas.map(arma => ({
@@ -98,7 +109,6 @@ const RegisterDeportista = () => {
         formData.append('documentos', JSON.stringify(docsData));
         formData.append('armas', JSON.stringify(armasData));
 
-        // 3. Agregar archivos de documentos y armas por separado
         documentos.forEach((doc, index) => {
             if (doc.file_path) {
                 formData.append(`documentos_file[${index}]`, doc.file_path, doc.file_path.name);
@@ -113,9 +123,31 @@ const RegisterDeportista = () => {
       try {
         await deportistaService.createDeportista(formData); 
         setMessage('Deportista registrado con éxito. Pendiente de aprobación.');
+        
+        setDeportistaData({ 
+            first_name: '', apellido_paterno: '', apellido_materno: '', ci: '', 
+            birth_date: '', departamento: '', genero: '', telefono: '', foto_path: null 
+        });
+        setDocumentos([]);
+        setArmas([]);
+
     } catch (err) {
-        setError('Error al registrar. Verifique los datos y los archivos.');
-        console.error(err);
+        console.error("Error detallado:", err.response ? err.response.data : err.message);
+        if (err.response && err.response.data) {
+            const errorData = err.response.data;
+            let specificError = "";
+            if (errorData.ci) {
+                specificError = `CI: ${errorData.ci[0]}`;
+            } else if (errorData.detail) {
+                specificError = errorData.detail;
+            } else {
+                const firstKey = Object.keys(errorData)[0];
+                specificError = `${firstKey}: ${errorData[firstKey][0]}`;
+            }
+            setError(specificError);
+        } else {
+            setError('Error al conectar con el servidor. Intente de nuevo.');
+        }
     }
 };
 
@@ -132,23 +164,32 @@ const RegisterDeportista = () => {
             <div className="card shadow-lg p-4">
                 <form onSubmit={handleSubmit} className="row g-4"> 
                     
-                    {/* SECCIÓN 1: Datos Personales y Foto */}
                     <h4 className="border-bottom pb-2 text-secondary">Datos Personales</h4>
-                    <div className="col-md-4"><input type="text" className="form-control" name="first_name" placeholder="Nombre" value={deportistaData.first_name} onChange={handleChange} required /></div>
-                    <div className="col-md-4"><input type="text" className="form-control" name="last_name" placeholder="Apellido" value={deportistaData.last_name} onChange={handleChange} required /></div>
-                    <div className="col-md-4"><input type="text" className="form-control" name="ci" placeholder="CI" value={deportistaData.ci} onChange={handleChange} required /></div>
+                    <div className="col-md-4">
+                        <input type="text" className="form-control" name="first_name" placeholder="Nombres" value={deportistaData.first_name} onChange={handleChange} required />
+                    </div>
+                    <div className="col-md-4">
+                        <input type="text" className="form-control" name="apellido_paterno" placeholder="Apellido Paterno" value={deportistaData.apellido_paterno} onChange={handleChange} required />
+                    </div>
+                    <div className="col-md-4">
+                        <input type="text" className="form-control" name="apellido_materno" placeholder="Apellido Materno (Opcional)" value={deportistaData.apellido_materno} onChange={handleChange} />
+                    </div>
                     
-                    <div className="col-md-3">
+                    <div className="col-md-4">
+                        <input type="text" className="form-control" name="ci" placeholder="CI" value={deportistaData.ci} onChange={handleChange} required />
+                    </div>
+                    <div className="col-md-4">
                         <label className="form-label">Fecha de Nacimiento</label>
                         <input type="date" className="form-control" name="birth_date" value={deportistaData.birth_date} onChange={handleChange} required />
                     </div>
-                    <div className="col-md-3">
+                    <div className="col-md-4">
                         <label className="form-label">Departamento</label>
                         <select className="form-select" name="departamento" value={deportistaData.departamento} onChange={handleChange} required>
                             <option value="">Seleccione Depto.</option>
                             {departamentosBolivia.map(depto => (<option key={depto} value={depto}>{depto}</option>))}
                         </select>
                     </div>
+
                     <div className="col-md-3">
                         <label className="form-label">Género</label>
                         <select className="form-select" name="genero" value={deportistaData.genero} onChange={handleChange} required>
@@ -187,8 +228,8 @@ const RegisterDeportista = () => {
                                         className="form-control" 
                                         name="expiration_date" 
                                         value={doc.expiration_date}
+                                        /* ... pero SÍ se usa aquí */
                                         onChange={(e) => handleDocChange(index, e)} 
-                                        // CRUCIAL: Deshabilitar/Opcional para CI
                                         disabled={doc.document_type === 'Carnet de Identidad'}
                                         required={doc.document_type === 'Licencia B'}
                                     />
@@ -213,14 +254,16 @@ const RegisterDeportista = () => {
                                     <label className="form-label">Tipo de Arma</label>
                                     <select className="form-select" name="tipo" value={arma.tipo} onChange={(e) => handleArmaChange(index, e)} required>
                                         <option value="">Seleccione Tipo</option>
-                                        {tiposArma.map(tipo => (<option key={tipo} value={tipo}>{tipo}</option>))}
+                                        {/* ... pero SÍ se usa aquí */
+                                        tiposArma.map(tipo => (<option key={tipo} value={tipo}>{tipo}</option>))}
                                     </select>
                                 </div>
                                 <div className="col-md-4">
                                     <label className="form-label">Calibre</label>
                                     <select className="form-select" name="calibre" value={arma.calibre} onChange={(e) => handleArmaChange(index, e)} required>
                                         <option value="">Seleccione Calibre</option>
-                                        {tiposCalibre.map(calibre => (<option key={calibre} value={calibre}>{calibre}</option>))}
+                                        {/* ... pero SÍ se usa aquí */
+                                        tiposCalibre.map(calibre => (<option key={calibre} value={calibre}>{calibre}</option>))}
                                     </select>
                                 </div>
                                 <div className="col-md-4">

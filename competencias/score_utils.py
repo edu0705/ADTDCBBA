@@ -45,7 +45,7 @@ def calculate_round_score(modalidad_name, score_data):
     # --- 3. ESCOPETA / HUNTER (Suma Directa o Total de Impactos) ---
     # Aplica para Fosa Olímpica, Hunter, etc.
     elif 'ESCOPETA' in modalidad_name or 'HUNTER' in modalidad_name:
-        # Asume que el frontend envía el total sumado de la ronda como 'total_impactos' o 'total_puntos'
+        # Asume que el frontend envía el total sumado de la ronda como 'total_impactos'
         return get_float('total_impactos')
 
     # --- 4. CHANCHO Y LIEBRE (Impactos Liebre/Jabalí) ---
@@ -54,9 +54,14 @@ def calculate_round_score(modalidad_name, score_data):
         liebres = get_float('impactos_liebre')
         jabalies = get_float('impactos_jabali')
         return liebres + jabalies
+    
+    # --- 5. ¡NUEVA LÓGICA! BENCH REST (Puntuación + X's) ---
+    elif 'BENCH REST' in modalidad_name:
+        # El puntaje principal es 'puntuacion'. 
+        # 'cantidad_x' se guarda automáticamente en detalles_json.
+        return get_float('puntuacion')
         
-    # --- 5. BENCH REST / PISTOLA MATCH (Suma de Puntuación Principal) ---
-    # Asume que el frontend ha sumado los 25 tiros o las diferentes rondas de Match.
+    # --- 6. Por Defecto (Suma de Puntuación Principal) ---
     else:
-        # Usamos un campo genérico para el total de la ronda cuando no hay desglose por impacto
+        # Usamos un campo genérico para el total de la ronda
         return get_float('puntaje_total_ronda')

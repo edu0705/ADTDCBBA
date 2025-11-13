@@ -22,8 +22,10 @@ const JudgePanel = () => {
 
     const fetchCompetencias = async () => {
         try {
+            // ¡CORREGIDO! Leemos los 'results' de la paginación
             const res = await competenciaService.getCompetencias();
-            setCompetencias(res.data.filter(comp => comp.status !== 'Finalizada')); 
+            const data = (res.data && res.data.results) ? res.data.results : res.data;
+            setCompetencias(data.filter(comp => comp.status !== 'Finalizada')); 
         } catch (err) {
             setError("No se pudieron cargar las competencias.");
         }
@@ -35,8 +37,11 @@ const JudgePanel = () => {
             return;
         }
         try {
+            // ¡CORREGIDO! Leemos los 'results' de la paginación
             const resIns = await competenciaService.getInscripciones();
-            const inscritos = resIns.data.filter(ins =>
+            const data = (resIns.data && resIns.data.results) ? resIns.data.results : resIns.data;
+            
+            const inscritos = data.filter(ins =>
                 ins.competencia === parseInt(competenciaId) && ins.estado === 'APROBADA'
             );
             
@@ -44,7 +49,8 @@ const JudgePanel = () => {
 
             const initialScores = {};
             inscritos.forEach(ins => {
-                initialScores[ins.id] = '';
+                // Inicializamos como un objeto vacío para los sub-campos
+                initialScores[ins.id] = {};
             });
             setPuntajeCrudo(initialScores); // Inicializa el estado para el formulario
             setError('');
@@ -63,9 +69,12 @@ const JudgePanel = () => {
         const competencia = competencias.find(c => c.id === parseInt(id));
         if (competencia && competencia.categorias && competencia.categorias.length > 0) {
             const categoriaId = competencia.categorias[0]; 
-            const modalidadesRes = await competenciaService.getModalidades();
             
-            const modalidad = modalidadesRes.data.find(m => m.categorias.some(c => c.id === categoriaId));
+            // ¡CORREGIDO! Leemos los 'results' de la paginación
+            const modalidadesRes = await competenciaService.getModalidades();
+            const data = (modalidadesRes.data && modalidadesRes.data.results) ? modalidadesRes.data.results : modalidadesRes.data;
+
+            const modalidad = data.find(m => m.categorias.some(c => c.id === categoriaId));
             setModalidadSeleccionada(modalidad || null);
         } else {
             setModalidadSeleccionada(null);
@@ -73,6 +82,7 @@ const JudgePanel = () => {
     };
 
     const handleRawScoreChange = (inscripcionId, field, value) => {
+        // Permitir valores vacíos, pero convertir a 0 si se borra
         const numericValue = parseFloat(value);
         setPuntajeCrudo(prevData => ({
             ...prevData,
@@ -106,14 +116,17 @@ const JudgePanel = () => {
             });
             setMessage(`Puntaje registrado con éxito en la ronda ${rondaSeleccionada}.`);
             
+            // Limpia los inputs para esa inscripción específica
             setPuntajeCrudo(prevData => ({
                 ...prevData,
                 [inscripcionId]: {}
             }));
             
         } catch (err) {
-            const detail = err.response && err.response.data && JSON.stringify(err.response.data);
-            setError(`Fallo al enviar puntaje. Detalle: ${detail || 'Error de servidor'}`);
+            const detail = (err.response && err.response.data) 
+                ? JSON.stringify(err.response.data) 
+                : 'Error de servidor';
+            setError(`Fallo al enviar puntaje. Detalle: ${detail}`);
         }
     };
     
@@ -132,6 +145,7 @@ const JudgePanel = () => {
                     <div className="col-6"><input type="number" className="form-control" placeholder="Impactos de 5" value={data.impactos_5 || ''} onChange={(e) => fieldChange('impactos_5', e.target.value)} /></div>
                     <div className="col-6"><input type="number" className="form-control" placeholder="Impactos de 4" value={data.impactos_4 || ''} onChange={(e) => fieldChange('impactos_4', e.target.value)} /></div>
                     <div className="col-6"><input type="number" className="form-control" placeholder="Impactos de 3" value={data.impactos_3 || ''} onChange={(e) => fieldChange('impactos_3', e.target.value)} /></div>
+                    <div className="col-6"><input type="number" className="form-control" placeholder="Impactos de 2" value={data.impactos_2 || ''} onChange={(e) => fieldChange('impactos_2', e.target.value)} /></div>
                 </div>
             );
         }
@@ -144,11 +158,49 @@ const JudgePanel = () => {
                     <div className="col-6"><input type="number" className="form-control" placeholder="PÁJAROS (x1)" value={data.pajaros || ''} onChange={(e) => fieldChange('pajaros', e.target.value)} /></div>
                     <div className="col-6"><input type="number" className="form-control" placeholder="CHANCHOS (x1.5)" value={data.chanchos || ''} onChange={(e) => fieldChange('chanchos', e.target.value)} /></div>
                     <div className="col-6"><input type="number" className="form-control" placeholder="PAVAS (x2)" value={data.pavas || ''} onChange={(e) => fieldChange('pavas', e.target.value)} /></div>
+                    <div className="col-6"><input type="number" className="form-control" placeholder="CARNEROS (x2.5)" value={data.carneros || ''} onChange={(e) => fieldChange('carneros', e.target.value)} /></div>
                 </div>
             );
         }
 
-        // Lógica por Defecto (Bench Rest, Hunter, Escopeta - Total de Ronda)
+        // --- ¡NUEVO BLOQUE DE LÓGICA! ---
+        if (modalidadName.includes('BENCH REST')) {
+            return (
+                <div className="row g-2">
+                    <p className="text-muted small mt-2">BENCH REST (Puntaje y X's)</p>
+                    <div className="col-6">
+                        <label className="form-label small">Puntuación (Max 250)</label>
+                        <input type="number" className="form-control" placeholder="Puntaje"
+                            value={data.puntuacion || ''}
+                            onChange={(e) => fieldChange('puntuacion', e.target.value)} 
+                            max="250"
+                        />
+                    </div>
+                    <div className="col-6">
+                        <label className="form-label small">Cantidad de X's</label>
+                        <input type="number" className="form-control" placeholder="X's"
+                            value={data.cantidad_x || ''}
+                            onChange={(e) => fieldChange('cantidad_x', e.target.value)} 
+                        />
+                    </div>
+                </div>
+            );
+        }
+
+        // Lógica para ESCOPETA / HUNTER (Total de Impactos)
+        if (modalidadName.includes('ESCOPETA') || modalidadName.includes('HUNTER')) {
+             return (
+                <input
+                    type="number"
+                    className="form-control"
+                    placeholder="Total de Impactos"
+                    value={data.total_impactos || ''}
+                    onChange={(e) => fieldChange('total_impactos', e.target.value)}
+                />
+            );
+        }
+
+        // Lógica por Defecto (Ej: Chancho y Liebre, etc.)
         return (
             <input
                 type="number"

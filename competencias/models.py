@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User # <-- ¡IMPORTACIÓN AÑADIDA!
 from deportistas.models import Deportista, Arma 
 from clubs.models import Club 
 
@@ -27,6 +27,10 @@ class Categoria(models.Model):
         return f"{self.modalidad.name} - {self.name}"
 
 class Juez(models.Model):
+    # ¡CAMPO AÑADIDO (PASO 8)!
+    # Conecta el perfil del Juez con una cuenta de Usuario de Django
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='juez_profile')
+    
     full_name = models.CharField(max_length=100)
     license_number = models.CharField(max_length=50)
 
