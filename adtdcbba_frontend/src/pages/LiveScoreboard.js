@@ -1,8 +1,9 @@
-// src/pages/LiveScoreboard.js
 import React, { useState, useEffect, useRef } from 'react';
 import competenciaService from '../services/competenciaService';
 
-const WS_URL_BASE = `ws://localhost:8001/ws/competencia/`; 
+// ¡CORREGIDO! Lee la URL del WebSocket desde las variables de entorno,
+// con un fallback a localhost:8001 para desarrollo.
+const WS_URL_BASE = process.env.REACT_APP_WS_URL || `ws://localhost:8001/ws/competencia/`; 
 
 const LiveScoreboard = () => {
   const [competencias, setCompetencias] = useState([]);
@@ -10,7 +11,6 @@ const LiveScoreboard = () => {
   const [scores, setScores] = useState({}); // {inscripcion_id: {deportista, puntaje, arma}}
   const [connectionStatus, setConnectionStatus] = useState('Desconectado');
   const wsRef = useRef(null); // Referencia para el WebSocket
-  // NOTA: Asegúrate de que tu servidor Daphne esté en el puerto 8001
 
   useEffect(() => {
     fetchCompetencias();
@@ -25,14 +25,15 @@ const LiveScoreboard = () => {
         wsRef.current = null;
       }
 
-      // ¡CAMBIO CLAVE! OBTENER TOKEN
+      // ¡CORRECCIÓN! (Paso 4 de Seguridad)
+      // Obtenemos el token para autenticar la conexión
       const token = localStorage.getItem('access_token');
       if (!token) {
           setConnectionStatus('Error: No autenticado');
           return; // No intentar conectar si no hay token
       }
 
-      // ¡CAMBIO CLAVE! Añadimos el token a la URL como un query parameter
+      // 2. Añadimos el token a la URL como un query parameter
       const WS_URL = `${WS_URL_BASE}${selectedCompetencia}/?token=${token}`;
       
       setConnectionStatus('Conectando...');
@@ -48,7 +49,8 @@ const LiveScoreboard = () => {
         const data = JSON.parse(e.data);
         console.log("Puntaje recibido:", data);
         
-        // 2. Actualizar el estado de puntajes en tiempo real
+        // 3. Actualizar el estado de puntajes en tiempo real
+        // Usamos el ID de inscripción como clave única
         setScores(prevScores => ({
           ...prevScores,
           [data.inscripcion_id]: {
@@ -77,19 +79,24 @@ const LiveScoreboard = () => {
         }
       };
     }
-  }, [selectedCompetencia]); // <-- Este efecto se ejecuta cuando 'selectedCompetencia' cambia
+    // Este efecto se ejecuta cada vez que 'selectedCompetencia' cambia
+  }, [selectedCompetencia]);
 
 
   const fetchCompetencias = async () => {
     try {
-      // Usa getCompetencias para obtener la lista de competencias activas
+      // Usa getCompetencias para obtener la lista de competencias
       const res = await competenciaService.getCompetencias();
-      setCompetencias(res.data.filter(comp => comp.status !== 'Finalizada'));
+      // Leemos los 'results' de la respuesta paginada
+      const data = (res.data && res.data.results) ? res.data.results : res.data;
+      // Filtramos solo las que no están 'Finalizada'
+      setCompetencias(data.filter(comp => comp.status !== 'Finalizada'));
     } catch (err) {
       console.error("Error al obtener competencias:", err);
     }
   };
 
+  // Ordenamos los puntajes de mayor a menor para el ranking
   const sortedScores = Object.values(scores).sort((a, b) => b.puntaje - a.puntaje);
 
   return (
@@ -98,7 +105,7 @@ const LiveScoreboard = () => {
       <p>Estado de la Conexión: <span style={{ color: connectionStatus === 'Conectado' ? 'green' : 'red' }}>{connectionStatus}</span></p>
 
       <label>Seleccionar Competencia:</label>
-      <select onChange={(e) => setSelectedCompetencia(e.target.value)} value={selectedCompetencia}>
+      <select className="form-select" onChange={(e) => setSelectedCompetencia(e.target.value)} value={selectedCompetencia}>
         <option value="">-- Seleccione --</option>
         {competencias.map(comp => (
           <option key={comp.id} value={comp.id}>{comp.name}</option>
@@ -106,8 +113,8 @@ const LiveScoreboard = () => {
       </select>
 
       {selectedCompetencia && (
-        <table>
-          <thead>
+        <table className="table table-striped table-hover mt-4">
+          <thead className="table-dark">
             <tr>
               <th>Posición</th>
               <th>Deportista</th>
@@ -117,7 +124,6 @@ const LiveScoreboard = () => {
           </thead>
           <tbody>
             {sortedScores.map((score, index) => (
-              // Se usa index como key temporal si inscripcion_id no está
               <tr key={score.inscripcion_id || index}>
                 <td>{index + 1}</td>
                 <td>{score.deportista}</td>
@@ -125,6 +131,11 @@ const LiveScoreboard = () => {
                 <td><strong>{score.puntaje}</strong></td>
               </tr>
             ))}
+            {sortedScores.length === 0 && (
+              <tr>
+                <td colSpan="4" className="text-center text-muted">Esperando puntajes...</td>
+              </tr>
+            )}
           </tbody>
         </table>
       )}
