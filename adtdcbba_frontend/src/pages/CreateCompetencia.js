@@ -51,6 +51,7 @@ const CreateCompetencia = () => {
         competenciaService.getCompetencias()
       ]);
 
+      // Función auxiliar para extraer datos paginados
       const extractData = (response) => {
           return (response.data && response.data.results && Array.isArray(response.data.results))
                  ? response.data.results 
