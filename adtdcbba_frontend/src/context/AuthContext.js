@@ -1,5 +1,12 @@
 // src/context/AuthContext.js
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { 
+    createContext, 
+    useState, 
+    useEffect, 
+    useContext, 
+    useMemo, 
+    useCallback // <-- 1. IMPORTA useCallback
+} from 'react';
 import authService from '../services/authService';
 
 const AuthContext = createContext();
@@ -42,10 +49,35 @@ export const AuthProvider = ({ children }) => {
         setUserRoles([]);
     };
 
-    const hasRole = (role) => userRoles.includes(role);
+    // --- INICIO DE LA MEJORA 1 ---
+    // 2. Envuelve 'hasRole' en useCallback
+    //    Esta función solo se recreará si 'userRoles' cambia.
+    const hasRole = useCallback(
+        (role) => userRoles.includes(role),
+        [userRoles] 
+    );
+    // --- FIN DE LA MEJORA 1 ---
+
+
+    // --- INICIO DE LA MEJORA 2 ---
+    // 3. Envuelve el objeto 'value' en useMemo
+    const value = useMemo(
+        () => ({
+            isLoggedIn,
+            userRoles,
+            loading,
+            login,
+            logout,
+            hasRole
+        }), 
+        [isLoggedIn, userRoles, loading, hasRole] // 4. AÑADE 'hasRole' a las dependencias
+    );
+    // --- FIN DE LA MEJORA 2 ---
+
 
     return (
-        <AuthContext.Provider value={{ isLoggedIn, userRoles, loading, login, logout, hasRole }}>
+        // Pasa el objeto memorizado
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );

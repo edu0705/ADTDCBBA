@@ -1,23 +1,34 @@
+// src/index.js
 import React from 'react';
-import { createRoot } from 'react-dom/client'; // Importación moderna de createRoot
-import './index.css'; // Asumo que tienes el archivo CSS básico
+import { createRoot } from 'react-dom/client';
+import './index.css';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
 
-// Busca el elemento DOM con el ID 'root'
+// --- ¡NUEVAS IMPORTACIONES! ---
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
+// --- ¡NUEVA INSTANCIA! ---
+// Crea el "cliente" que manejará la caché de datos
+const queryClient = new QueryClient();
+
 const container = document.getElementById('root'); 
 
-// Crea la raíz de React
 if (container) {
   const root = createRoot(container);
   
-  // Renderiza la aplicación
-root.render(
-  <React.StrictMode>
-    {/* ENVOLVEMOS LA APP CON EL PROVEEDOR DE AUTENTICACIÓN */}
-    <AuthProvider> 
-      <App />
-    </AuthProvider>
-  </React.StrictMode>
-);
+  root.render(
+    <React.StrictMode>
+      {/* 1. Envuelve tu app con el QueryClientProvider */}
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider> 
+          <App />
+        </AuthProvider>
+
+        {/* 2. (Opcional) Añade las herramientas de desarrollo */}
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
+    </React.StrictMode>
+  );
 }

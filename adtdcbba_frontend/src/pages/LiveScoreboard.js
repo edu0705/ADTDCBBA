@@ -3,8 +3,8 @@ import competenciaService from '../services/competenciaService';
 
 // ¡CORREGIDO! Lee la URL del WebSocket desde las variables de entorno,
 // con un fallback a localhost:8001 para desarrollo.
-const WS_URL_BASE = process.env.REACT_APP_WS_URL || `ws://localhost:8001/ws/competencia/`; 
-
+// const WS_URL_BASE = process.env.REACT_APP_WS_URL || `ws://localhost:8001/ws/competencia/`;
+const WS_URL_BASE = 'wss://<URL-DEL-BACKEND-abc>.ngrok-free.app/ws/competencia/'; // <-- ¡PEGA LA URL DE TU BACKEND AQUÍ (con wss://)!
 const LiveScoreboard = () => {
   const [competencias, setCompetencias] = useState([]);
   const [selectedCompetencia, setSelectedCompetencia] = useState('');

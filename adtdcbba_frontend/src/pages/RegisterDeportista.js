@@ -1,303 +1,250 @@
 // src/pages/RegisterDeportista.js
-import React, { useState } from 'react';
+import React from 'react';
 import deportistaService from '../services/deportistaService';
 
-const departamentosBolivia = [
-    'Beni', 'Chuquisaca', 'Cochabamba', 'La Paz', 
-    'Oruro', 'Pando', 'Potosí', 'Santa Cruz', 'Tarija'
-];
-
-// ESLint dice que 'tiposArma' no se usa...
-const tiposArma = [
-    'Carabina de aire comprimido', 'Carabina .22', 'Fusil de grueso calibre', 
-    'Pistola de aire comprimido', 'Pistola de fuego anular', 'Pistola de velocidad olímpica', 
-    'Pistola libre', 'Escopeta', 'Pistola semiautomática', 'Revólveres', 
-    'Carabinas y rifles', 'Escopetas'
-];
-
-// ... y que 'tiposCalibre' no se usa.
-const tiposCalibre = [
-    '.177 / 4.5 mm', '.22 Long Rifle', '7.62 mm', '9 mm', '.40 S&W', '.45 ACP', 'Calibre 12'
-];
+// --- ¡NUEVA IMPORTACIÓN! ---
+import { useForm } from 'react-hook-form';
 
 const RegisterDeportista = () => {
-    const [deportistaData, setDeportistaData] = useState({ 
-        first_name: '', 
-        apellido_paterno: '', 
-        apellido_materno: '', 
-        ci: '', 
-        birth_date: '',
-        departamento: '', 
-        genero: '', 
-        telefono: '', 
-        foto_path: null
-    });
     
-    const [documentos, setDocumentos] = useState([]);
-    const [armas, setArmas] = useState([]);
-    const [message, setMessage] = useState('');
-    const [error, setError] = useState('');
-
-    const handleChange = (e) => {
-        setDeportistaData({ ...deportistaData, [e.target.name]: e.target.value });
-    };
-
-    const handleFileChange = (e) => {
-        setDeportistaData({ ...deportistaData, [e.target.name]: e.target.files[0] });
-    };
-
-    // ESLint dice que 'handleDocChange' no se usa...
-    const handleDocChange = (index, e) => {
-        const newDocs = [...documentos];
-        const { name, value, type, files } = e.target;
+    // --- 1. REEMPLAZAR TODOS LOS useState del formulario ---
+    const { 
+        register,     // Función para "registrar" un input
+        handleSubmit, // Wrapper para tu función de submit
+        formState: { errors, isSubmitting }, // Objeto con errores y estado de carga
+        reset // Función para limpiar el formulario
+    } = useForm();
+    
+    // --- 2. NUEVA FUNCIÓN DE SUBMIT ---
+    // 'handleSubmit' (de useForm) llama a esta función
+    // y le pasa 'data' si y solo si la validación pasó.
+    const onSubmit = async (data) => {
+        // 'data' es un objeto con todos los valores del formulario
+        // ej: { first_name: "Juan", apellido_paterno: "Perez", ... }
         
-        if (type === 'file') {
-            newDocs[index][name] = files[0];
-        } else {
-            if (name === 'document_type' && value !== 'Licencia B') {
-                newDocs[index].expiration_date = ''; 
-            }
-            newDocs[index][name] = value;
-        }
-        setDocumentos(newDocs);
-    };
-
-    // ... y que 'handleArmaChange' no se usa.
-    const handleArmaChange = (index, e) => {
-        const newArmas = [...armas];
-        const { name, value, type, files } = e.target;
-        if (type === 'file') {
-            newArmas[index][name] = files[0];
-        } else {
-            newArmas[index][name] = value;
-        }
-        setArmas(newArmas);
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setMessage(''); setError('');
-
         const formData = new FormData();
         
-        for (const key in deportistaData) {
-            if (deportistaData[key]) {
-                formData.append(key, deportistaData[key]);
-            }
-        }
-        if (deportistaData.foto_path) {
-            formData.append('foto_path', deportistaData.foto_path, deportistaData.foto_path.name);
-        }
-
-        // ESLint dice que 'docsData' tiene un error de map...
-        const docsData = documentos.map(doc => {
-            const data = {
-                document_type: doc.document_type,
-            };
-            if (doc.document_type === 'Licencia B' && doc.expiration_date) {
-                data.expiration_date = doc.expiration_date;
-            }
-            return data; // <-- ¡El return SÍ está aquí!
-        });
+        // Mapea los datos del formulario al FormData
+        // (Asegúrate que los nombres coincidan con el 'register' y tu API)
+        formData.append('first_name', data.first_name);
+        formData.append('apellido_paterno', data.apellido_paterno);
+        formData.append('apellido_materno', data.apellido_materno);
+        formData.append('ci', data.ci);
+        formData.append('fecha_nacimiento', data.fecha_nacimiento);
+        formData.append('nacionalidad', data.nacionalidad || 'Boliviana');
+        formData.append('telefono', data.telefono);
+        formData.append('email', data.email);
         
-        const armasData = armas.map(arma => ({
-            tipo: arma.tipo, calibre: arma.calibre, marca: arma.marca, 
-            modelo: arma.modelo, numero_matricula: arma.numero_matricula,
-            fecha_inspeccion: arma.fecha_inspeccion 
-        }));
-
-        formData.append('documentos', JSON.stringify(docsData));
-        formData.append('armas', JSON.stringify(armasData));
-
-        documentos.forEach((doc, index) => {
-            if (doc.file_path) {
-                formData.append(`documentos_file[${index}]`, doc.file_path, doc.file_path.name);
-            }
-        });
-        armas.forEach((arma, index) => {
-            if (arma.file_path) {
-                formData.append(`armas_file[${index}]`, arma.file_path, arma.file_path.name);
-            }
-        });
-
-      try {
-        await deportistaService.createDeportista(formData); 
-        setMessage('Deportista registrado con éxito. Pendiente de aprobación.');
-        
-        setDeportistaData({ 
-            first_name: '', apellido_paterno: '', apellido_materno: '', ci: '', 
-            birth_date: '', departamento: '', genero: '', telefono: '', foto_path: null 
-        });
-        setDocumentos([]);
-        setArmas([]);
-
-    } catch (err) {
-        console.error("Error detallado:", err.response ? err.response.data : err.message);
-        if (err.response && err.response.data) {
-            const errorData = err.response.data;
-            let specificError = "";
-            if (errorData.ci) {
-                specificError = `CI: ${errorData.ci[0]}`;
-            } else if (errorData.detail) {
-                specificError = errorData.detail;
-            } else {
-                const firstKey = Object.keys(errorData)[0];
-                specificError = `${firstKey}: ${errorData[firstKey][0]}`;
-            }
-            setError(specificError);
-        } else {
-            setError('Error al conectar con el servidor. Intente de nuevo.');
+        // Manejo de archivos (vienen como un FileList)
+        // 'react-hook-form' maneja los archivos nativamente
+        if (data.foto_perfil && data.foto_perfil.length > 0) {
+            formData.append('foto_perfil', data.foto_perfil[0]);
         }
-    }
-};
+        if (data.doc_ci_anverso && data.doc_ci_anverso.length > 0) {
+            formData.append('doc_ci_anverso', data.doc_ci_anverso[0]);
+        }
+        if (data.doc_ci_reverso && data.doc_ci_reverso.length > 0) {
+            formData.append('doc_ci_reverso', data.doc_ci_reverso[0]);
+        }
+        if (data.doc_matricula_arma && data.doc_matricula_arma.length > 0) {
+            formData.append('doc_matricula_arma', data.doc_matricula_arma[0]);
+        }
+        if (data.doc_antecedentes && data.doc_antecedentes.length > 0) {
+            formData.append('doc_antecedentes', data.doc_antecedentes[0]);
+        }
 
-    const addDocumento = () => setDocumentos([...documentos, { document_type: 'Licencia B', file_path: null, expiration_date: '' }]);
-    const addArma = () => setArmas([...armas, { tipo: '', calibre: '', marca: '', modelo: '', numero_matricula: '', fecha_inspeccion: '', file_path: null }]);
+        try {
+            await deportistaService.createDeportista(formData);
+            alert('Deportista registrado con éxito. Pendiente de aprobación por un administrador.');
+            reset(); // Limpia el formulario después del éxito
+        } catch (err) {
+            console.error(err);
+            // Mejora: Lee el error específico de la API si existe
+            const errorMsg = err.response?.data ? JSON.stringify(err.response.data) : 'Revisa los campos e inténtalo de nuevo.';
+            alert(`Error al registrar deportista: ${errorMsg}`);
+        }
+    };
 
+    // --- 3. JSX ACTUALIZADO ---
+    
     return (
         <div className="container mt-4">
-            <h2 className="mb-4 text-primary">Registro de Nuevo Deportista</h2>
-            
-            {message && <div className="alert alert-success">{message}</div>}
-            {error && <div className="alert alert-danger">{error}</div>}
-
-            <div className="card shadow-lg p-4">
-                <form onSubmit={handleSubmit} className="row g-4"> 
+            <div className="row justify-content-center">
+                <div className="col-lg-10">
+                    <h2>Registro de Nuevo Deportista</h2>
+                    <p className="text-muted">El deportista será registrado como 'Pendiente' y debe ser aprobado por un administrador.</p>
                     
-                    <h4 className="border-bottom pb-2 text-secondary">Datos Personales</h4>
-                    <div className="col-md-4">
-                        <input type="text" className="form-control" name="first_name" placeholder="Nombres" value={deportistaData.first_name} onChange={handleChange} required />
-                    </div>
-                    <div className="col-md-4">
-                        <input type="text" className="form-control" name="apellido_paterno" placeholder="Apellido Paterno" value={deportistaData.apellido_paterno} onChange={handleChange} required />
-                    </div>
-                    <div className="col-md-4">
-                        <input type="text" className="form-control" name="apellido_materno" placeholder="Apellido Materno (Opcional)" value={deportistaData.apellido_materno} onChange={handleChange} />
-                    </div>
-                    
-                    <div className="col-md-4">
-                        <input type="text" className="form-control" name="ci" placeholder="CI" value={deportistaData.ci} onChange={handleChange} required />
-                    </div>
-                    <div className="col-md-4">
-                        <label className="form-label">Fecha de Nacimiento</label>
-                        <input type="date" className="form-control" name="birth_date" value={deportistaData.birth_date} onChange={handleChange} required />
-                    </div>
-                    <div className="col-md-4">
-                        <label className="form-label">Departamento</label>
-                        <select className="form-select" name="departamento" value={deportistaData.departamento} onChange={handleChange} required>
-                            <option value="">Seleccione Depto.</option>
-                            {departamentosBolivia.map(depto => (<option key={depto} value={depto}>{depto}</option>))}
-                        </select>
-                    </div>
+                    {/* 1. Usa 'handleSubmit' para envolver tu 'onSubmit' */}
+                    <form onSubmit={handleSubmit(onSubmit)} className="card p-4 shadow-sm">
+                        
+                        <h5 className="mt-2">Información Personal</h5>
+                        <hr />
+                        
+                        <div className="row">
+                            {/* --- CAMPO DE TEXTO (Ejemplo: Nombre) --- */}
+                            <div className="col-md-4 mb-3">
+                                <label className="form-label">Nombre(s)</label>
+                                <input
+                                    type="text"
+                                    // 2. Aplica clase de error si 'errors.first_name' existe
+                                    className={`form-control ${errors.first_name ? 'is-invalid' : ''}`}
+                                    // 3. "Registra" el input. No más 'value' ni 'onChange'
+                                    {...register('first_name', { required: 'El nombre es obligatorio' })}
+                                />
+                                {/* 4. Muestra el error de validación */}
+                                {errors.first_name && <div className="invalid-feedback">{errors.first_name.message}</div>}
+                            </div>
+                            
+                            {/* --- CAMPO DE TEXTO (Ejemplo: Apellido Paterno) --- */}
+                            <div className="col-md-4 mb-3">
+                                <label className="form-label">Apellido Paterno</label>
+                                <input
+                                    type="text"
+                                    className={`form-control ${errors.apellido_paterno ? 'is-invalid' : ''}`}
+                                    {...register('apellido_paterno', { required: 'El apellido paterno es obligatorio' })}
+                                />
+                                {errors.apellido_paterno && <div className="invalid-feedback">{errors.apellido_paterno.message}</div>}
+                            </div>
+                            
+                            <div className="col-md-4 mb-3">
+                                <label className="form-label">Apellido Materno</label>
+                                <input
+                                    type="text"
+                                    className="form-control" // Opcional, no requerido
+                                    {...register('apellido_materno')}
+                                />
+                            </div>
 
-                    <div className="col-md-3">
-                        <label className="form-label">Género</label>
-                        <select className="form-select" name="genero" value={deportistaData.genero} onChange={handleChange} required>
-                            <option value="">Seleccione Género</option>
-                            <option value="Masculino">Masculino</option>
-                            <option value="Femenino">Femenino</option>
-                        </select>
-                    </div>
-                    <div className="col-md-3">
-                        <label className="form-label">Teléfono</label>
-                        <input type="text" className="form-control" name="telefono" placeholder="Teléfono" value={deportistaData.telefono} onChange={handleChange} />
-                    </div>
+                            <div className="col-md-4 mb-3">
+                                <label className="form-label">Cédula de Identidad (CI)</label>
+                                <input
+                                    type="text"
+                                    className={`form-control ${errors.ci ? 'is-invalid' : ''}`}
+                                    {...register('ci', { required: 'El CI es obligatorio' })}
+                                />
+                                {errors.ci && <div className="invalid-feedback">{errors.ci.message}</div>}
+                            </div>
 
-                    <div className="col-md-6">
-                        <label className="form-label">Foto de Perfil</label>
-                        <input type="file" className="form-control" name="foto_path" onChange={handleFileChange} />
-                    </div>
-                    
-                    {/* SECCIÓN 2: Documentos */}
-                    <h4 className="mt-5 border-bottom pb-2 text-secondary">Documentos (Licencia B, Carnet)</h4>
-                    {documentos.map((doc, index) => (
-                        <div key={index} className="border p-3 rounded mb-3 col-12">
-                            <h6 className="text-muted">Documento #{index + 1}</h6>
-                            <div className="row g-3">
-                                <div className="col-md-4">
-                                    <label className="form-label">Tipo de Documento</label>
-                                    <select className="form-select" name="document_type" value={doc.document_type} onChange={(e) => handleDocChange(index, e)} required>
-                                        <option value="Licencia B">Licencia B (PDF)</option>
-                                        <option value="Carnet de Identidad">Carnet de Identidad (PDF)</option>
-                                    </select>
-                                </div>
-                                <div className="col-md-4">
-                                    <label className="form-label">Fecha de Vencimiento</label>
-                                    <input 
-                                        type="date" 
-                                        className="form-control" 
-                                        name="expiration_date" 
-                                        value={doc.expiration_date}
-                                        /* ... pero SÍ se usa aquí */
-                                        onChange={(e) => handleDocChange(index, e)} 
-                                        disabled={doc.document_type === 'Carnet de Identidad'}
-                                        required={doc.document_type === 'Licencia B'}
-                                    />
-                                    {doc.document_type === 'Carnet de Identidad' && <div className="form-text">No aplica vencimiento para CI.</div>}
-                                </div>
-                                <div className="col-md-4">
-                                    <label className="form-label">Archivo (PDF)</label>
-                                    <input type="file" className="form-control" name="file_path" onChange={(e) => handleDocChange(index, e)} required />
-                                </div>
+                            <div className="col-md-4 mb-3">
+                                <label className="form-label">Fecha de Nacimiento</label>
+                                <input
+                                    type="date"
+                                    className={`form-control ${errors.fecha_nacimiento ? 'is-invalid' : ''}`}
+                                    {...register('fecha_nacimiento', { required: 'La fecha de nacimiento es obligatoria' })}
+                                />
+                                {errors.fecha_nacimiento && <div className="invalid-feedback">{errors.fecha_nacimiento.message}</div>}
+                            </div>
+
+                            <div className="col-md-4 mb-3">
+                                <label className="form-label">Nacionalidad</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    defaultValue="Boliviana"
+                                    {...register('nacionalidad')}
+                                />
+                            </div>
+
+                            <div className="col-md-6 mb-3">
+                                <label className="form-label">Teléfono/Celular</label>
+                                <input
+                                    type="tel"
+                                    className={`form-control ${errors.telefono ? 'is-invalid' : ''}`}
+                                    {...register('telefono', { required: 'El teléfono es obligatorio' })}
+                                />
+                                {errors.telefono && <div className="invalid-feedback">{errors.telefono.message}</div>}
+                            </div>
+
+                            <div className="col-md-6 mb-3">
+                                <label className="form-label">Email</label>
+                                <input
+                                    type="email"
+                                    className={`form-control ${errors.email ? 'is-invalid' : ''}`}
+                                    {...register('email', { 
+                                        required: 'El email es obligatorio',
+                                        pattern: { // Validación de email simple
+                                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                                            message: "Formato de email inválido"
+                                        }
+                                    })}
+                                />
+                                {errors.email && <div className="invalid-feedback">{errors.email.message}</div>}
                             </div>
                         </div>
-                    ))}
-                    <div className="col-12"><button type="button" onClick={addDocumento} className="btn btn-outline-secondary btn-sm"><i className="bi bi-file-earmark-plus"></i> Añadir Documento</button></div>
 
-                    {/* SECCIÓN 3: Armas */}
-                    <h4 className="mt-5 border-bottom pb-2 text-secondary">Armas Registradas</h4>
-                    {armas.map((arma, index) => (
-                        <div key={index} className="border p-3 rounded mb-3 col-12">
-                            <h6 className="text-muted">Arma #{index + 1}</h6>
-                            <div className="row g-3">
-                                <div className="col-md-4">
-                                    <label className="form-label">Tipo de Arma</label>
-                                    <select className="form-select" name="tipo" value={arma.tipo} onChange={(e) => handleArmaChange(index, e)} required>
-                                        <option value="">Seleccione Tipo</option>
-                                        {/* ... pero SÍ se usa aquí */
-                                        tiposArma.map(tipo => (<option key={tipo} value={tipo}>{tipo}</option>))}
-                                    </select>
-                                </div>
-                                <div className="col-md-4">
-                                    <label className="form-label">Calibre</label>
-                                    <select className="form-select" name="calibre" value={arma.calibre} onChange={(e) => handleArmaChange(index, e)} required>
-                                        <option value="">Seleccione Calibre</option>
-                                        {/* ... pero SÍ se usa aquí */
-                                        tiposCalibre.map(calibre => (<option key={calibre} value={calibre}>{calibre}</option>))}
-                                    </select>
-                                </div>
-                                <div className="col-md-4">
-                                    <label className="form-label">Fecha de Inspección</label>
-                                    <input type="date" className="form-control" name="fecha_inspeccion" value={arma.fecha_inspeccion} onChange={(e) => handleArmaChange(index, e)} />
-                                </div>
-                                <div className="col-md-4">
-                                    <label className="form-label">Marca</label>
-                                    <input type="text" className="form-control" name="marca" placeholder="Marca" value={arma.marca} onChange={(e) => handleArmaChange(index, e)} required />
-                                </div>
-                                <div className="col-md-4">
-                                    <label className="form-label">Modelo</label>
-                                    <input type="text" className="form-control" name="modelo" placeholder="Modelo" value={arma.modelo} onChange={(e) => handleArmaChange(index, e)} required />
-                                </div>
-                                <div className="col-md-4">
-                                    <label className="form-label">N° de Matrícula</label>
-                                    <input type="text" className="form-control" name="numero_matricula" placeholder="N° Matrícula" value={arma.numero_matricula} onChange={(e) => handleArmaChange(index, e)} required />
-                                </div>
-                                <div className="col-md-4">
-                                    <label className="form-label">Matrícula (PDF)</label>
-                                    <input type="file" className="form-control" name="file_path" onChange={(e) => handleArmaChange(index, e)} />
-                                </div>
+                        <h5 className="mt-4">Documentos y Archivos</h5>
+                        <hr />
+
+                        <div className="row">
+                            {/* --- CAMPO DE ARCHIVO (Ejemplo: Foto Perfil) --- */}
+                            <div className="col-md-6 mb-3">
+                                <label className="form-label">Foto de Perfil (tipo carnet)</label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className={`form-control ${errors.foto_perfil ? 'is-invalid' : ''}`}
+                                    {...register('foto_perfil', { required: 'La foto de perfil es obligatoria' })}
+                                />
+                                {errors.foto_perfil && <div className="invalid-feedback">{errors.foto_perfil.message}</div>}
+                            </div>
+                            
+                            {/* ... aplica el mismo patrón para los otros 4 campos de archivo ... */}
+
+                            <div className="col-md-6 mb-3">
+                                <label className="form-label">CI Anverso (Escaneado)</label>
+                                <input
+                                    type="file"
+                                    accept=".pdf,image/*"
+                                    className={`form-control ${errors.doc_ci_anverso ? 'is-invalid' : ''}`}
+                                    {...register('doc_ci_anverso', { required: 'El anverso del CI es obligatorio' })}
+                                />
+                                {errors.doc_ci_anverso && <div className="invalid-feedback">{errors.doc_ci_anverso.message}</div>}
+                            </div>
+                            
+                            <div className="col-md-6 mb-3">
+                                <label className="form-label">CI Reverso (Escaneado)</label>
+                                <input
+                                    type="file"
+                                    accept=".pdf,image/*"
+                                    className={`form-control ${errors.doc_ci_reverso ? 'is-invalid' : ''}`}
+                                    {...register('doc_ci_reverso', { required: 'El reverso del CI es obligatorio' })}
+                                />
+                                {errors.doc_ci_reverso && <div className="invalid-feedback">{errors.doc_ci_reverso.message}</div>}
+                            </div>
+                            
+                            <div className="col-md-6 mb-3">
+                                <label className="form-label">Matrícula de Arma (Opcional)</label>
+                                <input
+                                    type="file"
+                                    accept=".pdf,image/*"
+                                    className="form-control"
+                                    {...register('doc_matricula_arma')}
+                                />
+                            </div>
+
+                            <div className="col-md-6 mb-3">
+                                <label className="form-label">Antecedentes (FELCC, Opcional)</label>
+                                <input
+                                    type="file"
+                                    accept=".pdf,image/*"
+                                    className="form-control"
+                                    {...register('doc_antecedentes')}
+                                />
                             </div>
                         </div>
-                    ))}
-                    <div className="col-12"><button type="button" onClick={addArma} className="btn btn-outline-secondary btn-sm"><i className="bi bi-gun"></i> Añadir Arma</button></div>
-                    
-                    {/* Botón Final */}
-                    <div className="col-12 mt-5">
-                        <button type="submit" className="btn btn-primary w-100 btn-lg">
-                            <i className="bi bi-person-plus me-2"></i> Registrar Deportista
+
+                        <hr className="mt-4" />
+                        
+                        <button 
+                            type="submit" 
+                            className="btn btn-primary btn-lg w-100"
+                            // 5. Usa 'isSubmitting' para deshabilitar el botón
+                            disabled={isSubmitting} 
+                        >
+                            {isSubmitting ? 'Registrando Deportista...' : 'Registrar Deportista'}
                         </button>
-                    </div>
-                </form>
+                    </form>
+                </div>
             </div>
         </div>
     );

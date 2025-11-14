@@ -1,3 +1,4 @@
+// src/pages/Login.js
 import React, { useState } from 'react';
 import authService from '../services/authService';
 import { useNavigate } from 'react-router-dom';
@@ -43,7 +44,18 @@ const Login = () => {
 
     } catch (err) {
       console.error(err);
-      setError('Error al iniciar sesión. Revisa tu nombre de usuario y contraseña.');
+
+      // --- INICIO DE LA MEJORA ---
+      
+      // Revisa si el error es un 401 (Credenciales inválidas)
+      if (err.response && err.response.status === 401) {
+        setError('Usuario o contraseña incorrectos.');
+      } 
+      // Si es cualquier otro error (500, error de red, etc.)
+      else {
+        setError('Error de conexión con el servidor. Por favor, inténtalo de nuevo más tarde.');
+      }
+      // --- FIN DE LA MEJORA ---
     }
   };
 

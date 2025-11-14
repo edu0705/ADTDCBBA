@@ -7,10 +7,3 @@ websocket_urlpatterns = [
     # La ruta que conecta el frontend con el consumidor de Django Channels
     path('ws/competencia/<int:competencia_id>/', ResultadoConsumer.as_asgi()), 
 ]
-
-application = ProtocolTypeRouter({
-    'websocket': URLRouter(
-        websocket_urlpatterns
-    ),
-    # El tráfico HTTP será manejado por Django por defecto (ver asgi.py)
-})

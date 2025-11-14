@@ -10,6 +10,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .score_utils import calculate_round_score # <-- ¡IMPORTANTE!
 
+from django.db import transaction # <-- 1. AÑADE ESTA IMPORTACIÓN
 
 # --- Serializadores de Gestión ---
 class PoligonoSerializer(serializers.ModelSerializer):
@@ -65,6 +66,7 @@ class InscripcionCreateSerializer(serializers.ModelSerializer):
         model = Inscripcion
         fields = ['deportista', 'competencia', 'participaciones'] 
 
+    @transaction.atomic  # <-- 2. AÑADE ESTE DECORADOR
     def create(self, validated_data):
         participaciones_data = validated_data.pop('participaciones')
         
@@ -76,10 +78,13 @@ class InscripcionCreateSerializer(serializers.ModelSerializer):
 
         validated_data['club'] = request.user.club
         
+        # --- INICIO DE LA TRANSACCIÓN ---
         inscripcion = Inscripcion.objects.create(**validated_data)
         
         for participacion_data in participaciones_data:
             Participacion.objects.create(inscripcion=inscripcion, **participacion_data)
+        # --- FIN DE LA TRANSACCIÓN ---
+        # Si algo falla aquí adentro, Django revierte la creación de 'inscripcion'.
             
         return inscripcion
 

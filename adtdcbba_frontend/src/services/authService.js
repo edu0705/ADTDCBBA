@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8001/api/';
-
+// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api/';
+const API_URL = 'https://damagingly-ungroupable-madilynn.ngrok-free'; // <-- ¡PEGA LA URL DE TU BACKEND AQUÍ!
 // Crea una instancia de Axios para la API de Django
 const api = axios.create({
   baseURL: API_URL,

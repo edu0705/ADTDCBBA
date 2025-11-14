@@ -1,3 +1,4 @@
+// src/App.js
 import React, { useLayoutEffect } from 'react'; 
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
 
@@ -20,13 +21,14 @@ import ManageDeportistas from './pages/ManageDeportistas';
 import DeportistaDetail from './pages/DeportistaDetail'; 
 import CreateCompetencia from './pages/CreateCompetencia';
 import MiPerfil from './pages/MiPerfil'; 
-
-// --- ¡NUEVAS IMPORTACIONES AÑADIDAS! ---
 import ManageClubs from './pages/ManageClubs';
 import ManageArmas from './pages/ManageArmas';
 
 // Importa la lógica de autenticación
 import { useAuth } from './context/AuthContext'; 
+
+// --- ¡NUEVA IMPORTACIÓN DE CONSTANTES! ---
+import { ROLES, ADMIN_ROLES } from './constants/roles';
 
 
 // Componente de Navegación Condicional
@@ -56,7 +58,7 @@ const Navigation = () => {
                         {isLoggedIn && (
                             <>
                                 {/* Club */}
-                                {hasRole('Club') && (
+                                {hasRole(ROLES.CLUB) && (
                                     <>
                                         <li className="nav-item"><Link to="/dashboard" className="nav-link">Mi Club</Link></li>
                                         <li className="nav-item"><Link to="/register-deportista" className="nav-link">Reg. Deportista</Link></li>
@@ -64,8 +66,8 @@ const Navigation = () => {
                                     </>
                                 )}
                                 
-                                {/* Admin */}
-                                {(hasRole('Presidente') || hasRole('Tesorero')) && (
+                                {/* Admin (Usando el array ADMIN_ROLES) */}
+                                {ADMIN_ROLES.some(role => hasRole(role)) && (
                                     <>
                                         <li className="nav-item"><Link to="/admin" className="nav-link">Panel Admin</Link></li>
                                         <li className="nav-item"><Link to="/register-club" className="btn btn-outline-success btn-sm ms-2">Reg. Club</Link></li> 
@@ -73,10 +75,10 @@ const Navigation = () => {
                                 )}
                                 
                                 {/* Juez */}
-                                {hasRole('Juez') && <li className="nav-item"><Link to="/juez" className="nav-link">Panel Juez</Link></li>}
+                                {hasRole(ROLES.JUEZ) && <li className="nav-item"><Link to="/juez" className="nav-link">Panel Juez</Link></li>}
                                 
                                 {/* Deportista */}
-                                {hasRole('Deportista') && <li className="nav-item"><Link to="/mi-perfil" className="nav-link">Mi Perfil</Link></li>}
+                                {hasRole(ROLES.DEPORTISTA) && <li className="nav-item"><Link to="/mi-perfil" className="nav-link">Mi Perfil</Link></li>}
 
                                 {/* Común */}
                                 <li className="nav-item"><Link to="/live-score" className="nav-link">Marcador en Vivo</Link></li>
@@ -137,31 +139,29 @@ function App() {
                 <Route path="/live-score" element={<LiveScoreboard />} /> 
                 
                 {/* Rutas Protegidas (Club) */}
-                <Route path="/dashboard" element={<PrivateRoute requiredRole="Club"><Dashboard /></PrivateRoute>} />
-                <Route path="/register-deportista" element={<PrivateRoute requiredRole="Club"><RegisterDeportista /></PrivateRoute>} />
-                <Route path="/register-inscripcion" element={<PrivateRoute requiredRole="Club"><RegisterInscripcion /></PrivateRoute>} />
+                <Route path="/dashboard" element={<PrivateRoute requiredRole={ROLES.CLUB}><Dashboard /></PrivateRoute>} />
+                <Route path="/register-deportista" element={<PrivateRoute requiredRole={ROLES.CLUB}><RegisterDeportista /></PrivateRoute>} />
+                <Route path="/register-inscripcion" element={<PrivateRoute requiredRole={ROLES.CLUB}><RegisterInscripcion /></PrivateRoute>} />
                 
                 {/* Rutas Protegidas (Administración) */}
-                <Route path="/register-club" element={<PrivateRoute requiredRole="Presidente"><AdminLayout><Register /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin" element={<PrivateRoute requiredRole="Presidente"><AdminLayout><AdminDashboard /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/poligonos" element={<PrivateRoute requiredRole="Presidente"><AdminLayout><ManagePoligonos /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/jueces" element={<PrivateRoute requiredRole="Presidente"><AdminLayout><ManageJueces /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/modalidades" element={<PrivateRoute requiredRole="Presidente"><AdminLayout><ManageModalidades /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/competencias/crear" element={<PrivateRoute requiredRole="Presidente"><AdminLayout><CreateCompetencia /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/deportistas" element={<PrivateRoute requiredRole="Presidente"><AdminLayout><ManageDeportistas /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/deportistas/:id" element={<PrivateRoute requiredRole="Presidente"><AdminLayout><DeportistaDetail /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/competencias" element={<PrivateRoute requiredRole="Presidente"><AdminLayout><ManageCompetitions /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/inscripciones" element={<PrivateRoute requiredRole="Tesorero"><AdminLayout><ManageInscripciones /></AdminLayout></PrivateRoute>} />
-
-                {/* --- ¡NUEVAS RUTAS AÑADIDAS! --- */}
-                <Route path="/admin/clubs" element={<PrivateRoute requiredRole="Presidente"><AdminLayout><ManageClubs /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/armas" element={<PrivateRoute requiredRole="Presidente"><AdminLayout><ManageArmas /></AdminLayout></PrivateRoute>} />
+                <Route path="/register-club" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><Register /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><AdminDashboard /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/poligonos" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManagePoligonos /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/jueces" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageJueces /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/modalidades" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageModalidades /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/competencias/crear" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><CreateCompetencia /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/deportistas" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageDeportistas /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/deportistas/:id" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><DeportistaDetail /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/competencias" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageCompetitions /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/inscripciones" element={<PrivateRoute requiredRole={ROLES.TESORERO}><AdminLayout><ManageInscripciones /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/clubs" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageClubs /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/armas" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageArmas /></AdminLayout></PrivateRoute>} />
 
                 {/* Rutas Protegidas (Juez) */}
-                <Route path="/juez" element={<PrivateRoute requiredRole="Juez"><JudgePanel /></PrivateRoute>} />
+                <Route path="/juez" element={<PrivateRoute requiredRole={ROLES.JUEZ}><JudgePanel /></PrivateRoute>} />
                 
                 {/* Ruta Protegida (Deportista) */}
-                <Route path="/mi-perfil" element={<PrivateRoute requiredRole="Deportista"><MiPerfil /></PrivateRoute>} />
+                <Route path="/mi-perfil" element={<PrivateRoute requiredRole={ROLES.DEPORTISTA}><MiPerfil /></PrivateRoute>} />
 
                 {/* Rutas por Defecto y Error */}
                 <Route path="/" element={<Login />} />
