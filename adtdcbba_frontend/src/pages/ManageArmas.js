@@ -1,87 +1,88 @@
-// src/pages/ManageArmas.js
 import React, { useState, useEffect } from 'react';
-import armaService from '../services/armaService'; // Ya teníamos este servicio
-import deportistaService from '../services/deportistaService'; // Para buscar deportistas
+import deportistaService from '../services/deportistaService'; // Usamos el servicio que ya tiene searchArmas
+import { FaCrosshairs, FaSearch, FaFilePdf, FaUser } from 'react-icons/fa';
 
 const ManageArmas = () => {
   const [armas, setArmas] = useState([]);
-  const [deportistas, setDeportistas] = useState([]); // Para mapear ID a Nombre
+  const [filter, setFilter] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchData();
+    // Reutilizamos el buscador con query vacía para traer todo
+    const load = async () => {
+        try {
+            const res = await deportistaService.searchArmas('');
+            setArmas(res.data.results || res.data);
+        } catch(err) { console.error(err); } 
+        finally { setLoading(false); }
+    };
+    load();
   }, []);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      // Obtenemos ambas listas en paralelo
-      const [armasRes, deportistasRes] = await Promise.all([
-        armaService.getArmas(),
-        deportistaService.getDeportistas()
-      ]);
+  const filtered = armas.filter(a => 
+      a.marca.toLowerCase().includes(filter.toLowerCase()) ||
+      a.numero_matricula.toLowerCase().includes(filter.toLowerCase()) ||
+      (a.deportista_nombre && a.deportista_nombre.toLowerCase().includes(filter.toLowerCase()))
+  );
 
-      // Extraemos los datos paginados
-      const extractData = (res) => (res.data && res.data.results) ? res.data.results : res.data;
-
-      setArmas(extractData(armasRes));
-      setDeportistas(extractData(deportistasRes));
-      setError('');
-    } catch (err) {
-      console.error("Error al cargar datos:", err.response || err);
-      setError("No se pudo cargar el reporte de armas.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Función para buscar el nombre del deportista usando el ID del arma
-  const getDeportistaName = (deportistaId) => {
-    const deportista = deportistas.find(d => d.id === deportistaId);
-    return deportista ? `${deportista.first_name} ${deportista.apellido_paterno}` : `ID: ${deportistaId}`;
-  };
-
-  if (loading) {
-    return <div className="container mt-4">Cargando reporte de armas...</div>;
-  }
+  if (loading) return <div className="text-center p-5">Cargando inventario...</div>;
 
   return (
-    <div className="container-fluid mt-4">
-      <h2 className="text-primary mb-4">Reporte Maestro de Armas</h2>
-      
-      {error && <div className="alert alert-danger">{error}</div>}
+    <div className="container fade-in">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2 className="fw-bold text-dark">Inventario de Armas</h2>
+        <button className="btn btn-dark rounded-pill px-4 shadow-sm" onClick={() => window.print()}>
+            <FaFilePdf className="me-2"/> Imprimir Reporte
+        </button>
+      </div>
 
-      <div className="card shadow-sm">
-        <div className="card-header">
-          <h4 className="mb-0 text-dark">Todas las Armas Registradas</h4>
+      <div className="card-elegant mb-4 p-3 no-print">
+        <div className="input-group border-0 bg-light rounded-pill overflow-hidden">
+            <span className="input-group-text border-0 bg-transparent ps-3"><FaSearch className="text-muted"/></span>
+            <input type="text" className="form-control border-0 bg-transparent" placeholder="Buscar por Marca, Matrícula o Propietario..." value={filter} onChange={e=>setFilter(e.target.value)}/>
         </div>
-        <div className="card-body">
-          <table className="table table-striped table-hover align-middle">
-            <thead className="table-dark">
-              <tr>
-                <th>Propietario (Deportista)</th>
-                <th>Tipo</th>
-                <th>Marca</th>
-                <th>Modelo</th>
-                <th>Calibre</th>
-                <th>N° Matrícula</th>
-              </tr>
-            </thead>
-            <tbody>
-              {armas.map(arma => (
-                <tr key={arma.id}>
-                  <td>{getDeportistaName(arma.deportista)}</td>
-                  <td>{arma.tipo}</td>
-                  <td>{arma.marca}</td>
-                  <td>{arma.modelo}</td>
-                  <td>{arma.calibre}</td>
-                  <td><strong>{arma.numero_matricula}</strong></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      </div>
+
+      <div className="card-elegant p-0 overflow-hidden">
+          <div className="table-responsive">
+              <table className="table table-hover align-middle mb-0">
+                  <thead className="bg-light text-uppercase small text-muted">
+                      <tr>
+                          <th className="ps-4 py-3">Arma</th>
+                          <th>Calibre</th>
+                          <th>Matrícula</th>
+                          <th>Propietario</th>
+                          <th className="text-end pe-4">Inspección</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      {filtered.map(arma => (
+                          <tr key={arma.id}>
+                              <td className="ps-4 fw-bold text-dark">
+                                  <FaCrosshairs className="text-muted me-2"/>
+                                  {arma.marca} {arma.modelo}
+                              </td>
+                              <td><span className="badge bg-light text-dark border">{arma.calibre}</span></td>
+                              <td className="font-monospace">{arma.numero_matricula}</td>
+                              <td>
+                                  <div className="d-flex align-items-center gap-2">
+                                      <FaUser className="text-primary small"/>
+                                      {arma.deportista_nombre || 'Desconocido'}
+                                  </div>
+                              </td>
+                              <td className="text-end pe-4">
+                                  {arma.fecha_inspeccion ? (
+                                      <span className={new Date(arma.fecha_inspeccion) < new Date() ? 'text-danger fw-bold' : 'text-success'}>
+                                          {arma.fecha_inspeccion}
+                                      </span>
+                                  ) : <span className="text-warning">Pendiente</span>}
+                              </td>
+                          </tr>
+                      ))}
+                      {filtered.length === 0 && <tr><td colSpan="5" className="text-center p-5 text-muted">No se encontraron armas.</td></tr>}
+                  </tbody>
+              </table>
+          </div>
       </div>
     </div>
   );

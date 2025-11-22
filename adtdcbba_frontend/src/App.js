@@ -1,102 +1,47 @@
-// src/App.js
 import React, { useLayoutEffect } from 'react'; 
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 
-// Importaciones de Páginas
-import Register from './pages/Register';
+// --- PÁGINAS PRINCIPALES ---
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import RegisterDeportista from './pages/RegisterDeportista';
 import AdminDashboard from './pages/AdminDashboard';
-import ManagePoligonos from './pages/ManagePoligonos';
-import ManageJueces from './pages/ManageJueces';
-import ManageModalidades from './pages/ManageModalidades';
-import ManageCompetitions from './pages/ManageCompetitions';
-import RegisterInscripcion from './pages/RegisterInscripcion';
-import ManageInscripciones from './pages/ManageInscripciones';
-import JudgePanel from './pages/JudgePanel'; 
-import LiveScoreboard from './pages/LiveScoreboard'; 
 import AdminLayout from './components/AdminLayout'; 
+import Register from './pages/Register'; 
+import VerificationPortal from './pages/VerificationPortal';
+
+// --- GESTIÓN DEPORTIVA ---
 import ManageDeportistas from './pages/ManageDeportistas';
+import RegisterDeportista from './pages/RegisterDeportista';
+import RegisterGuest from './pages/RegisterGuest'; 
 import DeportistaDetail from './pages/DeportistaDetail'; 
-import CreateCompetencia from './pages/CreateCompetencia';
-import MiPerfil from './pages/MiPerfil'; 
 import ManageClubs from './pages/ManageClubs';
+import ManageInscripciones from './pages/ManageInscripciones';
+import RegisterInscripcion from './pages/RegisterInscripcion';
+import CompetitionFinancials from './pages/CompetitionFinancials'; // <--- ¡ESTO FALTABA!
+
+// --- GESTIÓN TÉCNICA ---
+import ManageCompetitions from './pages/ManageCompetitions';
+import CreateCompetencia from './pages/CreateCompetencia';
+import ManageJueces from './pages/ManageJueces';
+import ManagePoligonos from './pages/ManagePoligonos';
+import ManageModalidades from './pages/ManageModalidades';
 import ManageArmas from './pages/ManageArmas';
 
-// Importa la lógica de autenticación
-import { useAuth } from './context/AuthContext'; 
+// --- OPERATIVO & REPORTES ---
+import JudgePanel from './pages/JudgePanel'; 
+import LiveScoreboard from './pages/LiveScoreboard'; 
+import StartList from './pages/StartList';
+import ResultsList from './pages/ResultsList';
+import CompetitionResults from './pages/CompetitionResults';
+import AnnualRanking from './pages/AnnualRanking';
+import ClubRanking from './pages/ClubRanking';
+import RecordsView from './pages/RecordsView';
+import SystemReports from './pages/SystemReports';
+import MiPerfil from './pages/MiPerfil'; 
 
-// --- ¡NUEVA IMPORTACIÓN DE CONSTANTES! ---
+import { useAuth } from './context/AuthContext'; 
 import { ROLES, ADMIN_ROLES } from './constants/roles';
 
-
-// Componente de Navegación Condicional
-const Navigation = () => {
-    const { isLoggedIn, hasRole, logout } = useAuth();
-    const navigate = useNavigate();
-
-    const handleLogout = () => {
-        logout();
-        navigate('/login');
-    };
-
-    return (
-        <nav className="navbar navbar-expand-lg navbar-light bg-light w-100 px-3 border-bottom shadow-sm">
-            <div className="container-fluid">
-                <Link to="/" className="navbar-brand h1 mb-0 text-primary fw-bold">ADTDCBBA</Link>
-                
-                <div className="collapse navbar-collapse justify-content-end">
-                    <ul className="navbar-nav">
-                        
-                        {!isLoggedIn && (
-                            <li className="nav-item">
-                                <Link to="/login" className="btn btn-primary btn-sm">Iniciar Sesión</Link>
-                            </li>
-                        )}
-
-                        {isLoggedIn && (
-                            <>
-                                {/* Club */}
-                                {hasRole(ROLES.CLUB) && (
-                                    <>
-                                        <li className="nav-item"><Link to="/dashboard" className="nav-link">Mi Club</Link></li>
-                                        <li className="nav-item"><Link to="/register-deportista" className="nav-link">Reg. Deportista</Link></li>
-                                        <li className="nav-item"><Link to="/register-inscripcion" className="nav-link">Inscribir</Link></li>
-                                    </>
-                                )}
-                                
-                                {/* Admin (Usando el array ADMIN_ROLES) */}
-                                {ADMIN_ROLES.some(role => hasRole(role)) && (
-                                    <>
-                                        <li className="nav-item"><Link to="/admin" className="nav-link">Panel Admin</Link></li>
-                                        <li className="nav-item"><Link to="/register-club" className="btn btn-outline-success btn-sm ms-2">Reg. Club</Link></li> 
-                                    </>
-                                )}
-                                
-                                {/* Juez */}
-                                {hasRole(ROLES.JUEZ) && <li className="nav-item"><Link to="/juez" className="nav-link">Panel Juez</Link></li>}
-                                
-                                {/* Deportista */}
-                                {hasRole(ROLES.DEPORTISTA) && <li className="nav-item"><Link to="/mi-perfil" className="nav-link">Mi Perfil</Link></li>}
-
-                                {/* Común */}
-                                <li className="nav-item"><Link to="/live-score" className="nav-link">Marcador en Vivo</Link></li>
-                                
-                                <li className="nav-item ms-3">
-                                    <button onClick={handleLogout} className="btn btn-outline-danger btn-sm">Cerrar Sesión</button>
-                                </li>
-                            </>
-                        )}
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    );
-};
-
-
-// Componente PrivateRoute (Sin cambios)
 const PrivateRoute = ({ children, requiredRole }) => {
   const { isLoggedIn, userRoles, loading } = useAuth();
   const navigate = useNavigate();
@@ -105,71 +50,75 @@ const PrivateRoute = ({ children, requiredRole }) => {
     if (!loading) { 
         if (!isLoggedIn) {
             navigate('/login');
-        } else if (!userRoles.includes(requiredRole)) {
-            navigate('/unauthorized');
+        } else {
+            const hasPermission = userRoles.includes(requiredRole) || 
+                                  (requiredRole === ROLES.PRESIDENTE && ADMIN_ROLES.some(r => userRoles.includes(r)));
+            if (!hasPermission) {
+                console.warn(`Acceso denegado.`);
+                navigate('/'); 
+            }
         }
     }
   }, [loading, isLoggedIn, userRoles, requiredRole, navigate]);
   
-  if (loading || !isLoggedIn || !userRoles.includes(requiredRole)) {
-      return <div className="text-center mt-5">Cargando o redirigiendo...</div>;
-  }
-
+  if (loading || !isLoggedIn) return <div className="text-center mt-5 p-5"><h1>Cargando...</h1></div>;
   return children;
 };
 
-
 function App() {
   const { loading } = useAuth();
-  
-  if (loading) {
-      return <div className="text-center mt-5">Cargando aplicación...</div>;
-  }
+  if (loading) return <div className="text-center mt-5">Iniciando...</div>;
 
   return (
     <Router>
-      <div className="App-container">
-        <header className="App-header p-0">
-            <Navigation /> 
-        </header>
-        <div className="container-fluid">
+        <div className="app-root">
             <Routes>
-                {/* Rutas Públicas */}
+                {/* --- RUTAS PÚBLICAS --- */}
                 <Route path="/login" element={<Login />} />
+                <Route path="/" element={<Login />} />
                 <Route path="/live-score" element={<LiveScoreboard />} /> 
-                
-                {/* Rutas Protegidas (Club) */}
-                <Route path="/dashboard" element={<PrivateRoute requiredRole={ROLES.CLUB}><Dashboard /></PrivateRoute>} />
-                <Route path="/register-deportista" element={<PrivateRoute requiredRole={ROLES.CLUB}><RegisterDeportista /></PrivateRoute>} />
-                <Route path="/register-inscripcion" element={<PrivateRoute requiredRole={ROLES.CLUB}><RegisterInscripcion /></PrivateRoute>} />
-                
-                {/* Rutas Protegidas (Administración) */}
-                <Route path="/register-club" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><Register /></AdminLayout></PrivateRoute>} />
+                <Route path="/verificar" element={<VerificationPortal />} />
+
+                {/* --- ZONA ADMIN --- */}
                 <Route path="/admin" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><AdminDashboard /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/poligonos" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManagePoligonos /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/jueces" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageJueces /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/modalidades" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageModalidades /></AdminLayout></PrivateRoute>} />
+                
+                <Route path="/admin/competencias" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageCompetitions /></AdminLayout></PrivateRoute>} />
                 <Route path="/admin/competencias/crear" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><CreateCompetencia /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/planillas" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><StartList /></AdminLayout></PrivateRoute>} />
+                
+                <Route path="/admin/clubs" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageClubs /></AdminLayout></PrivateRoute>} />
+                <Route path="/register-club" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><Register /></AdminLayout></PrivateRoute>} />
+                
                 <Route path="/admin/deportistas" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageDeportistas /></AdminLayout></PrivateRoute>} />
                 <Route path="/admin/deportistas/:id" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><DeportistaDetail /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/competencias" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageCompetitions /></AdminLayout></PrivateRoute>} />
+                <Route path="/register-deportista" element={<PrivateRoute requiredRole={ROLES.CLUB}><AdminLayout><RegisterDeportista /></AdminLayout></PrivateRoute>} />
+                <Route path="/register-guest" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><RegisterGuest /></AdminLayout></PrivateRoute>} />
+
                 <Route path="/admin/inscripciones" element={<PrivateRoute requiredRole={ROLES.TESORERO}><AdminLayout><ManageInscripciones /></AdminLayout></PrivateRoute>} />
-                <Route path="/admin/clubs" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageClubs /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/finanzas" element={<PrivateRoute requiredRole={ROLES.TESORERO}><AdminLayout><CompetitionFinancials /></AdminLayout></PrivateRoute>} />
+                <Route path="/register-inscripcion" element={<PrivateRoute requiredRole={ROLES.CLUB}><AdminLayout><RegisterInscripcion /></AdminLayout></PrivateRoute>} />
+
+                <Route path="/admin/jueces" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageJueces /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/poligonos" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManagePoligonos /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/modalidades" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageModalidades /></AdminLayout></PrivateRoute>} />
                 <Route path="/admin/armas" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><ManageArmas /></AdminLayout></PrivateRoute>} />
 
-                {/* Rutas Protegidas (Juez) */}
+                {/* --- REPORTES --- */}
+                <Route path="/admin/resultados" element={<PrivateRoute requiredRole={ROLES.CLUB}><AdminLayout><ResultsList /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/resultados/:id" element={<PrivateRoute requiredRole={ROLES.CLUB}><AdminLayout><CompetitionResults /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/ranking-anual" element={<PrivateRoute requiredRole={ROLES.CLUB}><AdminLayout><AnnualRanking /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/ranking-clubes" element={<PrivateRoute requiredRole={ROLES.CLUB}><AdminLayout><ClubRanking /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/records" element={<PrivateRoute requiredRole={ROLES.CLUB}><AdminLayout><RecordsView /></AdminLayout></PrivateRoute>} />
+                <Route path="/admin/reportes-sistema" element={<PrivateRoute requiredRole={ROLES.PRESIDENTE}><AdminLayout><SystemReports /></AdminLayout></PrivateRoute>} />
+
+                {/* --- OPERATIVO --- */}
+                <Route path="/dashboard" element={<PrivateRoute requiredRole={ROLES.CLUB}><AdminLayout><Dashboard /></AdminLayout></PrivateRoute>} />
                 <Route path="/juez" element={<PrivateRoute requiredRole={ROLES.JUEZ}><JudgePanel /></PrivateRoute>} />
-                
-                {/* Ruta Protegida (Deportista) */}
                 <Route path="/mi-perfil" element={<PrivateRoute requiredRole={ROLES.DEPORTISTA}><MiPerfil /></PrivateRoute>} />
 
-                {/* Rutas por Defecto y Error */}
-                <Route path="/" element={<Login />} />
-                <Route path="/unauthorized" element={<div className="container mt-5 alert alert-warning">No tienes permiso para acceder a esta página.</div>} />
-                <Route path="*" element={<div className="container mt-5 alert alert-danger">Página no encontrada.</div>} />
+                <Route path="*" element={<div className="p-5 text-center"><h3>404 - Página no encontrada</h3></div>} />
             </Routes>
         </div>
-      </div>
     </Router>
   );
 }

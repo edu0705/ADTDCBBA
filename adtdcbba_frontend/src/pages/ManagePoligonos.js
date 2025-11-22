@@ -1,184 +1,105 @@
 import React, { useState, useEffect } from 'react';
 import competenciaService from '../services/competenciaService';
+import { FaMapMarkerAlt, FaPlus, FaTrash, FaSave, FaTimes, FaBullseye } from 'react-icons/fa';
 
 const ManagePoligonos = () => {
   const [poligonos, setPoligonos] = useState([]);
-  // Inicializamos fecha_vencimiento_licencia con un string vacío para evitar problemas de formato de fecha
-  const [poligono, setPoligono] = useState({ name: '', address: '', numero_licencia: '', fecha_vencimiento_licencia: '' });
-  const [editingId, setEditingId] = useState(null);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [newData, setNewData] = useState({ name: '', address: '' });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchPoligonos();
+    loadData();
   }, []);
 
-  const fetchPoligonos = async () => {
+  const loadData = async () => {
     try {
-      const response = await competenciaService.getPoligonos();
-      setPoligonos(response.data);
-      setError('');
-    } catch (err) {
-      console.error("Error fetching poligonos:", err);
-      setError("Error al cargar la lista de polígonos.");
-    }
+      // Usamos la instancia 'api' directamente para flexibilidad
+      const res = await competenciaService.api.get('poligonos/');
+      setPoligonos(res.data.results || res.data);
+    } catch (err) { console.error(err); } 
+    finally { setLoading(false); }
   };
 
-  const handleChange = (e) => {
-      setPoligono({ ...poligono, [e.target.name]: e.target.value });
-  };
-
-  const handleCreateOrUpdate = async (e) => {
-    e.preventDefault();
-    setMessage('');
-    setError('');
-
-    try {
-      if (editingId) {
-        await competenciaService.updatePoligono(editingId, poligono);
-        setMessage("Polígono actualizado con éxito.");
-      } else {
-        await competenciaService.createPoligono(poligono);
-        setMessage("Polígono creado con éxito.");
-      }
-      // Limpiar y resetear estados
-      setPoligono({ name: '', address: '', numero_licencia: '', fecha_vencimiento_licencia: '' });
-      setEditingId(null);
-      fetchPoligonos();
-    } catch (err) {
-      console.error("Error creating/updating poligono:", err.response || err);
-      setError("Error al guardar polígono. Verifique los datos.");
-    }
-  };
-
-  const handleEdit = (p) => {
-    // Formatear la fecha a YYYY-MM-DD para el input[type="date"]
-    const formattedDate = p.fecha_vencimiento_licencia ? new Date(p.fecha_vencimiento_licencia).toISOString().split('T')[0] : '';
-    setPoligono({ ...p, fecha_vencimiento_licencia: formattedDate });
-    setEditingId(p.id);
+  const handleCreate = async (e) => {
+      e.preventDefault();
+      if(!newData.name.trim()) return;
+      try {
+          await competenciaService.api.post('poligonos/', newData);
+          setNewData({ name: '', address: '' });
+          setIsCreating(false);
+          loadData();
+      } catch (err) { alert("Error al crear el polígono."); }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("¿Está seguro de eliminar este polígono?")) return;
-    setMessage('');
-    setError('');
-    try {
-      await competenciaService.deletePoligono(id);
-      setMessage("Polígono eliminado con éxito.");
-      fetchPoligonos();
-    } catch (err) {
-      console.error("Error deleting poligono:", err.response || err);
-      setError("Error al eliminar polígono.");
-    }
+      if(window.confirm("¿Eliminar este polígono?")) {
+          try {
+              await competenciaService.api.delete(`poligonos/${id}/`);
+              loadData();
+          } catch (err) { alert("Error al eliminar."); }
+      }
   };
 
+  if (loading) return <div className="text-center p-5">Cargando...</div>;
+
   return (
-    <div className="container-fluid mt-4">
-        <h2 className="text-primary mb-4">Gestionar Polígonos</h2>
+    <div className="container fade-in">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2 className="fw-bold text-dark">Polígonos de Tiro</h2>
+        <button className="btn btn-primary rounded-pill px-4 shadow-sm" onClick={() => setIsCreating(true)}>
+            <FaPlus className="me-2"/> Nuevo Polígono
+        </button>
+      </div>
 
-        {message && <div className="alert alert-success">{message}</div>}
-        {error && <div className="alert alert-danger">{error}</div>}
+      {/* Formulario de Creación */}
+      {isCreating && (
+          <div className="card-elegant p-4 mb-4 bg-light border-primary border">
+              <h5 className="fw-bold text-primary mb-3">Registrar Nueva Sede</h5>
+              <form onSubmit={handleCreate} className="row g-3">
+                  <div className="col-md-5">
+                      <input 
+                        autoFocus type="text" className="form-control rounded-pill" 
+                        placeholder="Nombre del Polígono (Ej: Club Tunari)" 
+                        value={newData.name} onChange={e => setNewData({...newData, name: e.target.value})} required
+                      />
+                  </div>
+                  <div className="col-md-5">
+                      <input 
+                        type="text" className="form-control rounded-pill" 
+                        placeholder="Dirección / Ubicación" 
+                        value={newData.address} onChange={e => setNewData({...newData, address: e.target.value})} required
+                      />
+                  </div>
+                  <div className="col-md-2 d-flex gap-2">
+                      <button type="submit" className="btn btn-success rounded-pill w-100"><FaSave/></button>
+                      <button type="button" className="btn btn-secondary rounded-pill w-100" onClick={() => setIsCreating(false)}><FaTimes/></button>
+                  </div>
+              </form>
+          </div>
+      )}
 
-        <div className="card shadow-sm mb-5">
-            <div className="card-header bg-white">
-                <h4 className="mb-0 text-dark">{editingId ? 'Modificar Polígono' : 'Registrar Nuevo Polígono'}</h4>
-            </div>
-            <div className="card-body">
-                {/* Formulario de Creación/Edición */}
-                <form onSubmit={handleCreateOrUpdate} className="row g-3">
-                    <div className="col-md-6">
-                        <label className="form-label">Nombre</label>
-                        <input
-                            type="text"
-                            className="form-control"
-                            name="name"
-                            value={poligono.name}
-                            onChange={handleChange}
-                            required
-                        />
-                    </div>
-                    <div className="col-md-6">
-                        <label className="form-label">Dirección</label>
-                        <input
-                            type="text"
-                            className="form-control"
-                            name="address"
-                            value={poligono.address}
-                            onChange={handleChange}
-                            required
-                        />
-                    </div>
-                    <div className="col-md-6">
-                        <label className="form-label">Número de Licencia</label>
-                        <input
-                            type="text"
-                            className="form-control"
-                            name="numero_licencia"
-                            value={poligono.numero_licencia}
-                            onChange={handleChange}
-                        />
-                    </div>
-                    <div className="col-md-6">
-                        <label className="form-label">Fecha de Vencimiento (Licencia)</label>
-                        <input
-                            type="date"
-                            className="form-control"
-                            name="fecha_vencimiento_licencia"
-                            value={poligono.fecha_vencimiento_licencia}
-                            onChange={handleChange}
-                        />
-                    </div>
-                    
-                    <div className="col-12 mt-4">
-                        <button type="submit" className={`btn ${editingId ? 'btn-warning' : 'btn-primary'} me-2`}>
-                            <i className={`bi bi-${editingId ? 'pencil-square' : 'plus-circle'} me-2`}></i>
-                            {editingId ? 'Actualizar Polígono' : 'Crear Polígono'}
-                        </button>
-                        {editingId && (
-                            <button type="button" onClick={() => setEditingId(null)} className="btn btn-secondary">
-                                Cancelar
-                            </button>
-                        )}
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <h4 className="mb-3 text-secondary">Polígonos Registrados</h4>
-        <div className="card shadow-sm">
-            <div className="card-body">
-                {/* Tabla para Visualizar Datos */}
-                <table className="table table-striped table-hover align-middle">
-                    <thead className="table-primary">
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Dirección</th>
-                            <th>Licencia</th>
-                            <th>Vencimiento</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {poligonos.map(p => (
-                            <tr key={p.id}>
-                                <td>{p.name}</td>
-                                <td>{p.address}</td>
-                                <td>{p.numero_licencia || 'N/A'}</td>
-                                <td>{p.fecha_vencimiento_licencia || 'Permanente'}</td>
-                                <td>
-                                    <button onClick={() => handleEdit(p)} className="btn btn-sm btn-info me-2 text-white">
-                                        <i className="bi bi-pencil"></i>
-                                    </button>
-                                    <button onClick={() => handleDelete(p.id)} className="btn btn-sm btn-danger">
-                                        <i className="bi bi-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+      <div className="row">
+          {poligonos.map(pol => (
+              <div key={pol.id} className="col-md-6 mb-3">
+                  <div className="card-elegant p-3 d-flex justify-content-between align-items-center">
+                      <div className="d-flex align-items-center gap-3">
+                          <div className="bg-danger bg-opacity-10 text-danger p-3 rounded-circle">
+                              <FaBullseye size={20}/>
+                          </div>
+                          <div>
+                              <h5 className="fw-bold text-dark m-0">{pol.name}</h5>
+                              <small className="text-muted"><FaMapMarkerAlt className="me-1"/> {pol.address}</small>
+                          </div>
+                      </div>
+                      <button className="btn btn-sm btn-outline-danger border-0 rounded-circle" onClick={() => handleDelete(pol.id)}>
+                          <FaTrash/>
+                      </button>
+                  </div>
+              </div>
+          ))}
+          {poligonos.length === 0 && <div className="col-12 text-center p-5 text-muted">No hay polígonos registrados.</div>}
+      </div>
     </div>
   );
 };

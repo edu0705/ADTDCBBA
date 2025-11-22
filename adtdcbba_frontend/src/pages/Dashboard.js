@@ -1,82 +1,92 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Agregamos useCallback aquí
-import { useNavigate } from 'react-router-dom';
-import authService from '../services/authService';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { FaUserPlus, FaClipboardList, FaUsers, FaMedal } from 'react-icons/fa';
 
 const Dashboard = () => {
-  // Inicializamos como un array vacío para evitar el error .map is not a function
-  const [clubs, setClubs] = useState([]); 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const navigate = useNavigate();
+  const { user } = useAuth();
 
-  // Usamos useCallback para que la función fetchClubs sea estable y no cause warnings
-  const fetchClubs = useCallback(async () => {
-    try {
-      const response = await authService.api.get('clubs/');
-      
-      let data = response.data;
-      
-      // Lógica robusta para extraer la lista de clubs
-      // Si la API usa paginación (DRF por defecto), la lista está en 'results'.
-      if (data && data.results && Array.isArray(data.results)) {
-          data = data.results;
-      } 
-      
-      // Asignamos el array (o un array vacío si el formato es inesperado)
-      setClubs(Array.isArray(data) ? data : []); 
-      setError(null);
-      
-    } catch (err) {
-      console.error('Error fetching clubs:', err);
-      if (err.response && err.response.status === 401) {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        navigate('/login');
-      }
-      setError('Error al cargar la información del Dashboard.');
-      setClubs([]); 
-      
-    } finally {
-        setLoading(false);
-    }
-  }, [navigate]); // navigate es una dependencia para useCallback
-
-  useEffect(() => {
-    // Redirige al login si no hay token (Lógica de PrivateRoute)
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-    
-    // Llamamos a la función estable
-    fetchClubs();
-    
-  }, [navigate, fetchClubs]); // <-- ¡Lista de dependencias limpia y completa!
-
-  // Solo renderiza cuando los datos han sido cargados
-  if (loading) {
-    return <div>Cargando Dashboard...</div>;
-  }
+  // Opciones de acceso rápido para el Club
+  const options = [
+    { 
+      title: 'Registrar Deportista', 
+      desc: 'Afilia a un nuevo atleta a tu club.', 
+      link: '/register-deportista', 
+      icon: <FaUserPlus />,
+      color: 'linear-gradient(135deg, #4e73df 0%, #224abe 100%)' 
+    },
+    { 
+      title: 'Nueva Inscripción', 
+      desc: 'Inscribe atletas a competencias activas.', 
+      link: '/register-inscripcion', 
+      icon: <FaClipboardList />,
+      color: 'linear-gradient(135deg, #1cc88a 0%, #13855c 100%)' 
+    },
+  ];
 
   return (
     <div>
-      <h2>Dashboard de Clubs</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {/* Encabezado */}
+      <div className="mb-5 fade-in">
+        <span className="text-uppercase text-muted small fw-bold tracking-wide">Vista General</span>
+        <h2 className="fw-bold text-dark mt-1">
+            Hola, {user?.username || 'Club'}
+        </h2>
+        <p className="text-muted">Bienvenido al panel de gestión de tu club.</p>
+      </div>
 
-      <h3>Listado de Clubs Registrados:</h3>
-      <ul>
-        {/* Renderizado simple y seguro */}
-        {clubs.length > 0 ? (
-          clubs.map(club => (
-            <li key={club.id}>{club.name}</li>
-          ))
-        ) : (
-          <li>No hay clubs para mostrar o su usuario no tiene permisos para ver esta lista.</li>
-        )}
-      </ul>
+      {/* Tarjetas de Acción */}
+      <div className="row mb-5 fade-in">
+        {options.map((opt, i) => (
+          <div key={i} className="col-md-6 mb-4">
+            <div className="card border-0 shadow-sm h-100 hover-scale" style={{ borderRadius: '20px', transition: 'transform 0.2s' }}>
+              <div className="card-body p-4 d-flex align-items-center">
+                <div 
+                  className="rounded-4 d-flex align-items-center justify-content-center me-4 text-white shadow-sm"
+                  style={{ width: '70px', height: '70px', background: opt.color, fontSize: '1.8rem' }}
+                >
+                  {opt.icon}
+                </div>
+                <div>
+                  <h5 className="fw-bold text-dark mb-1">{opt.title}</h5>
+                  <p className="text-muted small mb-3">{opt.desc}</p>
+                  <Link to={opt.link} className="btn btn-sm rounded-pill fw-bold px-4 btn-outline-primary">
+                    Acceder
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Resumen de Estadísticas (Ejemplo Visual) */}
+      <div className="row fade-in">
+          <div className="col-md-4 mb-4">
+              <div className="card border-0 shadow-sm p-4 h-100" style={{ borderRadius: '20px', backgroundColor: '#fff' }}>
+                  <div className="d-flex align-items-center">
+                      <FaUsers className="text-primary mb-0 me-3" style={{ fontSize: '2rem', opacity: 0.2 }} />
+                      <div>
+                          <h3 className="fw-bold text-dark mb-0">--</h3>
+                          <p className="text-muted small mb-0">Deportistas Activos</p>
+                      </div>
+                  </div>
+              </div>
+          </div>
+          <div className="col-md-4 mb-4">
+              <div className="card border-0 shadow-sm p-4 h-100" style={{ borderRadius: '20px', backgroundColor: '#fff' }}>
+                   <div className="d-flex align-items-center">
+                      <FaMedal className="text-warning mb-0 me-3" style={{ fontSize: '2rem', opacity: 0.2 }} />
+                      <div>
+                          <h3 className="fw-bold text-dark mb-0">--</h3>
+                          <p className="text-muted small mb-0">Podios obtenidos</p>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      </div>
     </div>
   );
 };
 
-export default Dashboard;
+export default Dashboard; // <-- ¡AQUÍ ESTABA EL ERROR! Asegúrate que diga Dashboard

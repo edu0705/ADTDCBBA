@@ -1,33 +1,24 @@
-# .gitignore
+# --- .gitignore ---
 
 # Python / Django
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-db.sqlite3
-
-# Entornos virtuales
-venv/
+*.py[cod]
+*$py.class
 venv_django/
+venv/
 env/
-
-# Archivos de Django (generados)
-/staticfiles/
-/media/
-
-# Archivo de secretos (¡MUY IMPORTANTE!)
+*.sqlite3
+db.sqlite3
 .env
-.env.*
 
-# Node.js / React
-node_modules/
-build/
-.npm
+# React / Frontend
+adtdcbba_frontend/node_modules/
+adtdcbba_frontend/build/
+.DS_Store
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Archivos de Sistema Operativo
-.DS_Store
+# Editor
+.vscode/
+.idea/

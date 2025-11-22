@@ -1,8 +1,9 @@
 import axios from 'axios';
 
-// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api/';
-const API_URL = 'https://damagingly-ungroupable-madilynn.ngrok-free'; // <-- ¡PEGA LA URL DE TU BACKEND AQUÍ!
-// Crea una instancia de Axios para la API de Django
+// CORRECCIÓN: Usar la variable de entorno o el localhost por defecto.
+// Nota: Se agrega '/api/' al final porque tus rutas en urls.py empiezan con 'api/'
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api/';
+
 const api = axios.create({
   baseURL: API_URL,
 });
@@ -22,19 +23,17 @@ api.interceptors.request.use(
 );
 
 const registerClub = (userData) => {
-  // Usa la instancia 'api'
-  return api.post('register/club/', userData);
+  return api.post('clubs/register/', userData); // Asegúrate de que esta ruta coincida con tu urls.py
 };
 
 const login = (username, password) => {
-  // Esta es la única petición que no necesita un token
+  // Petición al endpoint de token
   return api.post('token/', {
     username,
     password,
   });
 };
 
-// Asigna el objeto a una constante antes de exportarlo
 const AuthService = {
   registerClub,
   login,

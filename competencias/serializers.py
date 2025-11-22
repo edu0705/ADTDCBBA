@@ -1,187 +1,215 @@
 from rest_framework import serializers
-from .models import (
-    Competencia, Modalidad, Categoria, Poligono, Juez, 
-    Inscripcion, Resultado, Participacion
-)
-from deportistas.models import Deportista, Arma
-from clubs.models import Club
 from django.contrib.auth.models import User
+from django.db import transaction
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from .score_utils import calculate_round_score # <-- ¡IMPORTANTE!
+from datetime import date
 
-from django.db import transaction # <-- 1. AÑADE ESTA IMPORTACIÓN
+from .models import (
+    Competencia, Modalidad, Categoria, Poligono, Juez, 
+    Inscripcion, Resultado, Participacion, Record, CategoriaCompetencia, Gasto
+)
+from deportistas.models import Deportista, Arma, PrestamoArma
+from clubs.models import Club
+from .score_utils import calculate_round_score
 
-# --- Serializadores de Gestión ---
 class PoligonoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Poligono
-        fields = '__all__'
-
+    class Meta: model = Poligono; fields = '__all__'
 class JuezSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Juez
-        fields = '__all__'
-
+    class Meta: model = Juez; fields = '__all__'
 class CategoriaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Categoria
-        fields = '__all__'
-
+    class Meta: model = Categoria; fields = '__all__'
 class ModalidadSerializer(serializers.ModelSerializer):
     categorias = CategoriaSerializer(many=True, read_only=True)
+    class Meta: model = Modalidad; fields = ['id', 'name', 'categorias']
+class GastoSerializer(serializers.ModelSerializer):
+    class Meta: model = Gasto; fields = '__all__'
+
+class CategoriaCompetenciaSerializer(serializers.ModelSerializer):
+    categoria_id = serializers.ReadOnlyField(source='categoria.id')
+    categoria_name = serializers.ReadOnlyField(source='categoria.name')
+    modalidad_name = serializers.ReadOnlyField(source='categoria.modalidad.name')
+    modalidad_id = serializers.ReadOnlyField(source='categoria.modalidad.id')
+    # EXPORTAMOS CALIBRE PARA FRONTEND
+    calibre_permitido = serializers.ReadOnlyField(source='categoria.calibre_permitido')
     class Meta:
-        model = Modalidad
-        fields = ['id', 'name', 'categorias']
+        model = CategoriaCompetencia
+        fields = ['id', 'categoria_id', 'categoria_name', 'modalidad_id', 'modalidad_name', 'costo', 'calibre_permitido']
 
 class CompetenciaSerializer(serializers.ModelSerializer):
-    categorias = serializers.PrimaryKeyRelatedField(many=True, queryset=Categoria.objects.all())
-    jueces = serializers.PrimaryKeyRelatedField(many=True, queryset=Juez.objects.all())
-    
-    class Meta:
-        model = Competencia
-        fields = '__all__'
-
-
-# --- Serializadores de Inscripción y Participación ---
+    lista_precios = CategoriaCompetenciaSerializer(source='categoriacompetencia_set', many=True, read_only=True)
+    precios_input = serializers.ListField(child=serializers.DictField(), write_only=True, required=False)
+    categorias = serializers.PrimaryKeyRelatedField(many=True, queryset=Categoria.objects.all(), required=False)
+    jueces = serializers.PrimaryKeyRelatedField(many=True, queryset=Juez.objects.all(), required=False)
+    class Meta: model = Competencia; fields = '__all__'
+    def create(self, validated_data):
+        precios = validated_data.pop('precios_input', [])
+        cats = validated_data.pop('categorias', [])
+        jueces = validated_data.pop('jueces', [])
+        comp = Competencia.objects.create(**validated_data)
+        comp.jueces.set(jueces)
+        for cat in cats:
+            p = next((x for x in precios if int(x['id'])==cat.id), None)
+            CategoriaCompetencia.objects.create(competencia=comp, categoria=cat, costo=p['costo'] if p else 0)
+        return comp
 
 class ParticipacionSerializer(serializers.ModelSerializer):
     modalidad_name = serializers.CharField(source='modalidad.name', read_only=True)
-    arma_info = serializers.CharField(source='arma_utilizada.marca', read_only=True) 
-
-    class Meta:
-        model = Participacion
-        fields = ['id', 'modalidad', 'modalidad_name', 'arma_utilizada', 'arma_info']
+    categoria_name = serializers.CharField(source='categoria.name', read_only=True)
+    arma_info = serializers.CharField(source='arma_utilizada.marca', read_only=True)
+    arma_calibre = serializers.CharField(source='arma_utilizada.calibre', read_only=True)
+    class Meta: model = Participacion; fields = '__all__'
 
 class ParticipacionCreateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Participacion
-        fields = ['modalidad', 'arma_utilizada']
+    categoria_id = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all(), source='categoria')
+    class Meta: model = Participacion; fields = ['categoria_id', 'arma_utilizada']
 
-# Serializador principal para crear la Inscripción (recibe datos anidados)
-class InscripcionCreateSerializer(serializers.ModelSerializer):
-    participaciones = ParticipacionCreateSerializer(many=True, write_only=True)
-    
-    class Meta:
-        model = Inscripcion
-        fields = ['deportista', 'competencia', 'participaciones'] 
-
-    @transaction.atomic  # <-- 2. AÑADE ESTE DECORADOR
-    def create(self, validated_data):
-        participaciones_data = validated_data.pop('participaciones')
-        
-        # Asume que el usuario logueado es el dueño del club
-        # ¡MEJORA DE SEGURIDAD! Obtener el club desde el usuario
-        request = self.context.get('request')
-        if not request or not hasattr(request, 'user') or not hasattr(request.user, 'club'):
-             raise serializers.ValidationError({"detail": "No se puede identificar el club del usuario logueado."})
-
-        validated_data['club'] = request.user.club
-        
-        # --- INICIO DE LA TRANSACCIÓN ---
-        inscripcion = Inscripcion.objects.create(**validated_data)
-        
-        for participacion_data in participaciones_data:
-            Participacion.objects.create(inscripcion=inscripcion, **participacion_data)
-        # --- FIN DE LA TRANSACCIÓN ---
-        # Si algo falla aquí adentro, Django revierte la creación de 'inscripcion'.
-            
-        return inscripcion
-
-# Serializador de Inscripción para LISTAR
 class InscripcionSerializer(serializers.ModelSerializer):
     participaciones = ParticipacionSerializer(many=True, read_only=True) 
-    deportista = serializers.StringRelatedField()
-    
-    class Meta:
-        model = Inscripcion
-        fields = '__all__'
+    deportista_nombre = serializers.CharField(source='deportista.first_name', read_only=True)
+    deportista_apellido = serializers.CharField(source='deportista.apellido_paterno', read_only=True)
+    club_nombre = serializers.CharField(source='club.name', read_only=True)
+    competencia_nombre = serializers.CharField(source='competencia.name', read_only=True)
+    class Meta: model = Inscripcion; fields = '__all__'
 
+# --- VALIDACIÓN INTELIGENTE ---
+class InscripcionCreateSerializer(serializers.ModelSerializer):
+    participaciones = ParticipacionCreateSerializer(many=True, write_only=True)
+    class Meta: model = Inscripcion; fields = ['deportista', 'competencia', 'participaciones'] 
 
-# --- Serializadores de Resultados y Live Scoring ---
+    def validate(self, data):
+        competencia = data.get('competencia')
+        participaciones = data.get('participaciones', [])
+        deportista = data.get('deportista')
+        today = date.today()
+        edad = deportista.get_edad()
+
+        # 1. Estado de Licencia (Solo para fuego)
+        licencia_b = deportista.documentos.filter(document_type='Licencia B').order_by('-expiration_date').first()
+        tiene_licencia = licencia_b and (not licencia_b.expiration_date or licencia_b.expiration_date >= today)
+
+        for part in participaciones:
+            arma = part.get('arma_utilizada')
+            cat_obj = part.get('categoria')
+
+            if arma:
+                # A. FILTRO CALIBRE
+                if cat_obj.calibre_permitido and arma.calibre.lower().strip() != cat_obj.calibre_permitido.lower().strip():
+                     raise serializers.ValidationError(f"Categoría '{cat_obj.name}' exige calibre {cat_obj.calibre_permitido}, pero el arma es {arma.calibre}.")
+
+                # B. REGLAS ARMA FUEGO (No Aire)
+                if not arma.es_aire_comprimido:
+                    # Menor de edad
+                    if edad < 21:
+                        if not deportista.archivo_responsabilidad:
+                            raise serializers.ValidationError(f"Menor ({edad} años) requiere 'Carta de Responsabilidad de Tutor' para usar fuego.")
+                    else:
+                        # Mayor sin licencia
+                        if not tiene_licencia:
+                            raise serializers.ValidationError(f"Mayor de edad sin Licencia B vigente. Solo puede usar Aire Comprimido.")
+
+                    # Inspección (2026+)
+                    if competencia.start_date.year >= 2026:
+                        if not arma.fecha_inspeccion or arma.fecha_inspeccion < competencia.start_date:
+                            raise serializers.ValidationError(f"El arma {arma.marca} tiene la inspección vencida.")
+
+                # C. PROPIEDAD
+                if arma.deportista != deportista:
+                    if not PrestamoArma.objects.filter(arma=arma, deportista_receptor=deportista, competencia=competencia).exists():
+                        raise serializers.ValidationError(f"Arma {arma.marca} no es propia ni prestada legalmente.")
+
+            # D. OBLIGATORIO 2026
+            elif competencia.start_date.year >= 2026:
+                 raise serializers.ValidationError("2026+: Arma obligatoria.")
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        participaciones_data = validated_data.pop('participaciones')
+        competencia = validated_data['competencia']
+        request = self.context.get('request')
+        total_a_pagar = competencia.costo_inscripcion_base
+        
+        if hasattr(request.user, 'club'): validated_data['club'] = request.user.club
+        elif hasattr(request.user, 'deportista') and request.user.deportista.club: validated_data['club'] = request.user.deportista.club
+
+        inscripcion, created = Inscripcion.objects.get_or_create(
+            competencia=competencia, deportista=validated_data['deportista'],
+            defaults={'club': validated_data.get('club'), 'costo_inscripcion': 0}
+        )
+        if not created: total_a_pagar = inscripcion.costo_inscripcion
+
+        for p_data in participaciones_data:
+            cat_obj = p_data['categoria']
+            if Participacion.objects.filter(inscripcion=inscripcion, categoria=cat_obj).exists(): continue
+            try: costo_cat = CategoriaCompetencia.objects.get(competencia=competencia, categoria=cat_obj).costo
+            except: costo_cat = 0
+            total_a_pagar += costo_cat
+
+            Participacion.objects.create(
+                inscripcion=inscripcion, categoria=cat_obj, modalidad=cat_obj.modalidad,
+                arma_utilizada=p_data.get('arma_utilizada'), costo_cobrado=costo_cat
+            )
+        
+        inscripcion.costo_inscripcion = total_a_pagar
+        inscripcion.save()
+        return inscripcion
 
 class ResultadoSerializer(serializers.ModelSerializer):
-    # Serializador genérico para listar los resultados
-    class Meta:
-        model = Resultado
-        fields = '__all__'
+    class Meta: model = Resultado; fields = '__all__'
 
 class ScoreSubmissionSerializer(serializers.ModelSerializer):
-    # Recibimos el objeto JSON de datos crudos (ej: {pajaros: 4, chanchos: 5})
-    inscripcion = serializers.PrimaryKeyRelatedField(
-        queryset=Inscripcion.objects.all()
-    )
-    puntaje_crudo = serializers.JSONField(write_only=True) # Campo para los datos crudos
+    inscripcion = serializers.PrimaryKeyRelatedField(queryset=Inscripcion.objects.all())
+    puntaje_crudo = serializers.JSONField(write_only=True) 
     ronda_o_serie = serializers.CharField(max_length=50) 
+    class Meta: model = Resultado; fields = ['inscripcion', 'ronda_o_serie', 'puntaje_crudo'] 
     
-    class Meta:
-        model = Resultado
-        # Solo recibimos la Inscripcion, Ronda, y los Datos Crudos
-        fields = ['inscripcion', 'ronda_o_serie', 'puntaje_crudo'] 
-    
-    # ¡MÉTODO CREATE MODIFICADO! (Paso 8.D)
+    def validate(self, data):
+        if data.get('inscripcion').competencia.status == 'Finalizada': raise serializers.ValidationError("Competencia cerrada.")
+        return data
+
     def create(self, validated_data):
-        
-        # 1. Obtenemos el usuario logueado desde el 'context'
         request = self.context.get('request')
-        juez_logueado = None
-        
+        juez = None
         if request and hasattr(request, 'user') and not request.user.is_anonymous:
-            # Buscamos el perfil de Juez asociado a este Usuario
-            try:
-                # 'juez_profile' es el 'related_name' que definimos en el Modelo Juez
-                juez_logueado = request.user.juez_profile
-            except Juez.DoesNotExist:
-                pass # El usuario logueado no tiene un perfil de Juez
+            try: juez = request.user.juez_profile
+            except: pass 
         
-        
-        # 2. Tu lógica existente para calcular el score (¡ESTÁ PERFECTA!)
-        inscripcion_obj = validated_data.get('inscripcion')
+        inscripcion = validated_data.get('inscripcion')
         score_data = validated_data.pop('puntaje_crudo')
-        
-        participacion = inscripcion_obj.participaciones.first() 
-        
-        if not participacion:
-             raise serializers.ValidationError({"detail": "La inscripción no tiene una participación válida para calcular el score."})
+        ronda = validated_data.get('ronda_o_serie')
+        participacion = inscripcion.participaciones.first() 
+        if not participacion: raise serializers.ValidationError("Sin participación.")
              
-        modalidad_name = participacion.modalidad.name
+        final_score = calculate_round_score(participacion.modalidad.name, score_data)
         
-        # 2. CALCULAR EL PUNTAJE FINAL usando la función de utilidad
-        final_score = calculate_round_score(modalidad_name, score_data)
-        
-        # 3. CREAR EL REGISTRO DE RESULTADO
         resultado = Resultado.objects.create(
-            inscripcion=inscripcion_obj,
-            puntaje=final_score, # <-- Usamos el valor CALCULADO
-            detalles_json=score_data, # Guardamos el detalle crudo para auditoría
-            ronda_o_serie=validated_data.get('ronda_o_serie'),
-            juez_que_registro=juez_logueado # <-- ¡AQUÍ GUARDAMOS AL JUEZ!
+            inscripcion=inscripcion, puntaje=final_score, detalles_json=score_data,
+            ronda_o_serie=ronda, juez_que_registro=juez
         )
         
-        # 4. Lógica de WebSockets (Broadcast)
-        channel_layer = get_channel_layer()
-        competencia_id = inscripcion_obj.competencia.id
-        competencia_group_name = f'competencia_{competencia_id}'
-
-        deportista_name = f"{inscripcion_obj.deportista.first_name} {inscripcion_obj.deportista.last_name}"
+        # Récords
+        comp = inscripcion.competencia
+        cats = comp.categorias.filter(modalidad=participacion.modalidad)
+        for cat in cats:
+            rec_actual = Record.objects.filter(modalidad=participacion.modalidad, categoria=cat, es_actual=True).first()
+            nuevo = False
+            if rec_actual:
+                if final_score > rec_actual.puntaje:
+                    rec_actual.es_actual = False; rec_actual.save(); nuevo = True
+            else: nuevo = True
+            if nuevo:
+                Record.objects.create(
+                    modalidad=participacion.modalidad, categoria=cat, deportista=inscripcion.deportista,
+                    competencia=comp, puntaje=final_score, fecha_registro=comp.start_date, es_actual=True, antecesor=rec_actual
+                )
         
-        participacion = inscripcion_obj.participaciones.first()
-        arma_info = "N/A"
-        if participacion and participacion.arma_utilizada:
-            arma_info = f"{participacion.arma_utilizada.marca} {participacion.arma_utilizada.calibre}"
-
-        async_to_sync(channel_layer.group_send)(
-            competencia_group_name,
-            {
-                'type': 'resultado_update', 
-                'data': {
-                    'inscripcion_id': inscripcion_obj.id,
-                    'competencia_id': competencia_id,
-                    'puntaje': str(final_score), # Convertir el puntaje CALCULADO a string para JSON
-                    'deportista': deportista_name,
-                    'arma': arma_info,
-                    'ronda': validated_data.get('ronda_o_serie')
-                }
-            }
+        # WebSockets
+        cl = get_channel_layer()
+        dep_name = f"{inscripcion.deportista.first_name} {inscripcion.deportista.apellido_paterno}"
+        arma = f"{participacion.arma_utilizada.marca}" if participacion.arma_utilizada else "N/A"
+        async_to_sync(cl.group_send)(
+            f'competencia_{comp.id}',
+            {'type': 'resultado_update', 'data': {'inscripcion_id': inscripcion.id, 'puntaje': str(final_score), 'deportista': dep_name, 'arma': arma}}
         )
         return resultado

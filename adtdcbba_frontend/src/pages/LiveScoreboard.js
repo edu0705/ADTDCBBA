@@ -1,16 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import competenciaService from '../services/competenciaService';
 
-// ¡CORREGIDO! Lee la URL del WebSocket desde las variables de entorno,
-// con un fallback a localhost:8001 para desarrollo.
-// const WS_URL_BASE = process.env.REACT_APP_WS_URL || `ws://localhost:8001/ws/competencia/`;
-const WS_URL_BASE = 'wss://<URL-DEL-BACKEND-abc>.ngrok-free.app/ws/competencia/'; // <-- ¡PEGA LA URL DE TU BACKEND AQUÍ (con wss://)!
+// --- LÓGICA DINÁMICA DE WEBSOCKET ---
+// Detecta si la página se sirve por HTTPS o HTTP para elegir wss: o ws:
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+// Detecta el host del backend.
+// En desarrollo suele ser localhost:8001. En producción, usa la variable de entorno.
+const API_HOST = process.env.REACT_APP_API_HOST || 'localhost:8001'; 
+
+// Construye la URL base final
+const WS_URL_BASE = `${protocol}//${API_HOST}/ws/competencia/`;
+
 const LiveScoreboard = () => {
   const [competencias, setCompetencias] = useState([]);
   const [selectedCompetencia, setSelectedCompetencia] = useState('');
   const [scores, setScores] = useState({}); // {inscripcion_id: {deportista, puntaje, arma}}
   const [connectionStatus, setConnectionStatus] = useState('Desconectado');
-  const wsRef = useRef(null); // Referencia para el WebSocket
+  const wsRef = useRef(null); 
 
   useEffect(() => {
     fetchCompetencias();
@@ -25,18 +32,19 @@ const LiveScoreboard = () => {
         wsRef.current = null;
       }
 
-      // ¡CORRECCIÓN! (Paso 4 de Seguridad)
-      // Obtenemos el token para autenticar la conexión
+      // Verificación de Token (Seguridad)
       const token = localStorage.getItem('access_token');
       if (!token) {
           setConnectionStatus('Error: No autenticado');
-          return; // No intentar conectar si no hay token
+          return;
       }
 
-      // 2. Añadimos el token a la URL como un query parameter
+      // 2. Añadimos el token a la URL
       const WS_URL = `${WS_URL_BASE}${selectedCompetencia}/?token=${token}`;
       
       setConnectionStatus('Conectando...');
+      console.log(`Intentando conectar a: ${WS_URL}`);
+      
       const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
 
@@ -50,7 +58,6 @@ const LiveScoreboard = () => {
         console.log("Puntaje recibido:", data);
         
         // 3. Actualizar el estado de puntajes en tiempo real
-        // Usamos el ID de inscripción como clave única
         setScores(prevScores => ({
           ...prevScores,
           [data.inscripcion_id]: {
@@ -79,15 +86,13 @@ const LiveScoreboard = () => {
         }
       };
     }
-    // Este efecto se ejecuta cada vez que 'selectedCompetencia' cambia
   }, [selectedCompetencia]);
 
 
   const fetchCompetencias = async () => {
     try {
-      // Usa getCompetencias para obtener la lista de competencias
       const res = await competenciaService.getCompetencias();
-      // Leemos los 'results' de la respuesta paginada
+      // Soporte para respuesta paginada o lista directa
       const data = (res.data && res.data.results) ? res.data.results : res.data;
       // Filtramos solo las que no están 'Finalizada'
       setCompetencias(data.filter(comp => comp.status !== 'Finalizada'));
@@ -96,13 +101,13 @@ const LiveScoreboard = () => {
     }
   };
 
-  // Ordenamos los puntajes de mayor a menor para el ranking
-  const sortedScores = Object.values(scores).sort((a, b) => b.puntaje - a.puntaje);
+  // Ordenamos los puntajes de mayor a menor
+  const sortedScores = Object.values(scores).sort((a, b) => parseFloat(b.puntaje) - parseFloat(a.puntaje));
 
   return (
     <div>
       <h2>Marcador en Vivo (Live Scoring)</h2>
-      <p>Estado de la Conexión: <span style={{ color: connectionStatus === 'Conectado' ? 'green' : 'red' }}>{connectionStatus}</span></p>
+      <p>Estado de la Conexión: <span style={{ color: connectionStatus === 'Conectado' ? 'green' : 'red', fontWeight: 'bold' }}>{connectionStatus}</span></p>
 
       <label>Seleccionar Competencia:</label>
       <select className="form-select" onChange={(e) => setSelectedCompetencia(e.target.value)} value={selectedCompetencia}>
@@ -124,7 +129,7 @@ const LiveScoreboard = () => {
           </thead>
           <tbody>
             {sortedScores.map((score, index) => (
-              <tr key={score.inscripcion_id || index}>
+              <tr key={index}>
                 <td>{index + 1}</td>
                 <td>{score.deportista}</td>
                 <td>{score.arma}</td>
